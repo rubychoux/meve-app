@@ -246,7 +246,7 @@ export function ScanResultScreen() {
           </View>
         )}
 
-        {/* 홍조 / 자극 (legacy) */}
+        {/* 홍조 / 자극 */}
         {result.redness?.detected && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>홍조 / 자극</Text>

@@ -5,6 +5,7 @@ import { View, ActivityIndicator, Platform } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import * as Linking from 'expo-linking';
 import { useAuthStore } from '../store';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 import { RootStackParamList } from '../types';
 import { OnboardingNavigator } from './OnboardingNavigator';
@@ -22,16 +23,18 @@ export function RootNavigator() {
 
   useEffect(() => {
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session ? { accessToken: session.access_token } : null);
-      setLoading(false);
-      if (session) {
-        refreshPremiumFromSupabase();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+        setSession(session ? { accessToken: session.access_token } : null);
+        setLoading(false);
+        if (session) {
+          refreshPremiumFromSupabase();
+        }
       }
-    });
+    );
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
       setSession(session ? { accessToken: session.access_token } : null);
       setLoading(false);
       if (session) {

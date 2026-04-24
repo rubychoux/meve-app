@@ -48,7 +48,7 @@ export function CommunityFeedScreen() {
       return;
     }
 
-    const list = rows ?? [];
+    const list = (rows ?? []) as CommunityPostRow[];
     const userIds = [...new Set(list.map((r) => r.user_id))];
     let nameMap: Record<string, string> = {};
     if (userIds.length > 0) {
