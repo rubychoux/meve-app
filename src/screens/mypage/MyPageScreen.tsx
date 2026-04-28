@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Linking,
 } from 'react-native';
 
 const logo = require('../../../assets/images/meve-logo.png');
@@ -19,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
 import { useAuthStore } from '../../store';
+import { useBeautyProfile } from '../../stores/beautyProfileStore';
 import { MainStackParamList, ScanAnalysisResult } from '../../types';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
@@ -48,11 +50,23 @@ const FEATURES = [
   { label: 'D-day 케어 플랜', free: 'X', premium: 'O' },
 ];
 
-const MENU_ITEMS: { icon: keyof typeof Ionicons.glyphMap; label: string; danger?: boolean }[] = [
+const MENU_ITEMS: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  danger?: boolean;
+  iconColor?: string;
+  subtitle?: string;
+}[] = [
   { icon: 'person-outline', label: '프로필 수정' },
   { icon: 'notifications-outline', label: '알림 설정' },
   { icon: 'shield-outline', label: '개인정보 처리방침' },
   { icon: 'document-text-outline', label: '이용약관' },
+  {
+    icon: 'chatbubble-outline',
+    label: '문의하기',
+    iconColor: '#5BA3D9',
+    subtitle: '불편한 점이나 개선사항을 알려주세요',
+  },
   { icon: 'log-out-outline', label: '로그아웃', danger: true },
 ];
 
@@ -126,6 +140,19 @@ export function MyPageScreen() {
     ]);
   };
 
+  const handleContact = () => {
+    Alert.alert('문의하기', '어떤 방법으로 문의하시겠어요?', [
+      {
+        text: '이메일로 문의',
+        onPress: () =>
+          Linking.openURL(
+            'mailto:chouxxkim@gmail.com?subject=meve 앱 문의&body=문의 내용을 입력해주세요.'
+          ),
+      },
+      { text: '취소', style: 'cancel' },
+    ]);
+  };
+
   const handleMenuPress = (label: string) => {
     switch (label) {
       case '프로필 수정':
@@ -139,6 +166,9 @@ export function MyPageScreen() {
         return;
       case '이용약관':
         navigation.navigate('TermsOfService');
+        return;
+      case '문의하기':
+        handleContact();
         return;
       case '로그아웃':
         handleLogout();
@@ -173,7 +203,13 @@ export function MyPageScreen() {
           </View>
         </View>
 
-        {/* ── 2. PLAN CARD (if not premium) ──────────────────────────────── */}
+        {/* ── 2. BEAUTY DNA ───────────────────────────────────────────────── */}
+        <BeautyDnaCard
+          onFaceAnalysis={() => navigation.navigate('FaceAnalysis')}
+          onSkinScan={() => (navigation as any).navigate('Skin')}
+        />
+
+        {/* ── 3. PLAN CARD (if not premium) ──────────────────────────────── */}
         {!isPremium && (
           <View style={styles.planCard}>
             <Text style={styles.planTitle}>meve 프리미엄</Text>
@@ -293,11 +329,16 @@ export function MyPageScreen() {
               <Ionicons
                 name={item.icon}
                 size={20}
-                color={item.danger ? Colors.danger : '#999'}
+                color={item.danger ? Colors.danger : item.iconColor ?? '#999'}
               />
-              <Text style={[styles.menuLabel, item.danger && { color: Colors.danger }]}>
-                {item.label}
-              </Text>
+              <View style={styles.menuLabelCol}>
+                <Text style={[styles.menuLabel, item.danger && { color: Colors.danger }]}>
+                  {item.label}
+                </Text>
+                {item.subtitle && (
+                  <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                )}
+              </View>
               <Ionicons name="chevron-forward" size={16} color="#ddd" />
             </TouchableOpacity>
           ))}
@@ -306,6 +347,101 @@ export function MyPageScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// ─── Beauty DNA card ────────────────────────────────────────────────────────
+
+interface PillProps {
+  label: string;
+  color: string;
+  outlined?: boolean;
+}
+
+function Pill({ label, color, outlined }: PillProps) {
+  return (
+    <View
+      style={{
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+        borderRadius: 50,
+        backgroundColor: outlined ? 'transparent' : `${color}20`,
+        borderWidth: outlined ? 1.5 : 1,
+        borderColor: color,
+        marginRight: 6,
+      }}
+    >
+      <Text style={{ fontSize: 12, color, fontWeight: '600' }}>{label}</Text>
+    </View>
+  );
+}
+
+const isValid = (v: string | null | undefined) =>
+  !!v && v !== 'unknown' && v.trim() !== '';
+
+function BeautyDnaCard({
+  onFaceAnalysis,
+  onSkinScan,
+}: {
+  onFaceAnalysis: () => void;
+  onSkinScan: () => void;
+}) {
+  const profile = useBeautyProfile();
+  const completion = profile.getCompletionPercentage();
+
+  return (
+    <View style={styles.dnaCard}>
+      <Text style={styles.dnaTitle}>내 뷰티 DNA ✨</Text>
+
+      <View style={styles.completionRow}>
+        <Text style={styles.completionText}>프로필 완성도 {completion}%</Text>
+        <View style={styles.completionBar}>
+          <View style={[styles.completionFill, { width: `${completion}%` }]} />
+        </View>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.dnaPillRow}
+      >
+        {isValid(profile.skinType) && (
+          <Pill label={profile.skinType!} color="#5BA3D9" />
+        )}
+        {isValid(profile.personalColor) && (
+          <Pill label={profile.personalColor!} color="#9B59B6" />
+        )}
+        {isValid(profile.vibe) && (
+          <Pill label={profile.vibe!} color="#FF6B9D" />
+        )}
+        {isValid(profile.faceShape) && (
+          <Pill label={profile.faceShape!} color="#8A8A9A" />
+        )}
+        {!isValid(profile.personalColor) && (
+          <TouchableOpacity onPress={onFaceAnalysis} activeOpacity={0.75}>
+            <View style={styles.ctaPill}>
+              <Text style={styles.ctaPillText}>+ 얼굴 분석하기</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+        {!isValid(profile.skinType) && (
+          <TouchableOpacity onPress={onSkinScan} activeOpacity={0.75}>
+            <View style={styles.ctaPill}>
+              <Text style={styles.ctaPillText}>+ 피부 스캔하기</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+
+      {profile.lastSkinScore != null && (
+        <Text style={styles.dnaScoreText}>
+          최근 스킨 스코어:{' '}
+          <Text style={{ color: '#5BA3D9', fontWeight: '700' }}>
+            {profile.lastSkinScore}점
+          </Text>
+        </Text>
+      )}
+    </View>
   );
 }
 
@@ -370,6 +506,71 @@ const styles = StyleSheet.create({
   },
   planBadgeTextPremium: {
     color: '#fff',
+  },
+
+  // Beauty DNA card
+  dnaCard: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 20,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#B0B0B0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 3,
+    gap: 10,
+  },
+  dnaTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  completionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  completionText: {
+    fontSize: 12,
+    color: '#8A8A9A',
+    fontWeight: '600',
+  },
+  completionBar: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#F0F0F0',
+    flex: 1,
+    overflow: 'hidden',
+  },
+  completionFill: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FF6B9D',
+  },
+  dnaPillRow: {
+    flexDirection: 'row',
+    paddingVertical: 2,
+    alignItems: 'center',
+  },
+  ctaPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 50,
+    borderWidth: 1.5,
+    borderColor: '#FF6B9D',
+    borderStyle: 'dashed',
+    marginRight: 6,
+  },
+  ctaPillText: {
+    fontSize: 12,
+    color: '#FF6B9D',
+    fontWeight: '600',
+  },
+  dnaScoreText: {
+    fontSize: 12,
+    color: '#1A1A2E',
   },
 
   // Plan card
@@ -510,10 +711,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F9F0F5',
   },
-  menuLabel: {
+  menuLabelCol: {
     marginLeft: 12,
+    flex: 1,
+    gap: 2,
+  },
+  menuLabel: {
     fontSize: 15,
     color: '#2D2D2D',
-    flex: 1,
+  },
+  menuSubtitle: {
+    fontSize: 12,
+    color: '#8A8A9A',
   },
 });

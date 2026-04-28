@@ -17,7 +17,7 @@ const logo = require('../../../assets/images/meve-logo.png');
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { BubbleIcon } from '../../components/ui/BubbleIcon';
-import { MEVE_GRADIENT } from '../../constants/theme';
+import { MEVE_GRADIENT, MEVE_GRADIENT_SIMPLE } from '../../constants/theme';
 
 if (
   Platform.OS === 'android' &&
@@ -43,6 +43,7 @@ import { CompositeNavigationProp } from '@react-navigation/native';
 import { MainTabParamList, MainStackParamList } from '../../types';
 import { supabase } from '../../services/supabase';
 import { useAuthStore } from '../../store';
+import { useBeautyProfile } from '../../stores/beautyProfileStore';
 import { EVENT_CONFIG, EventKey } from '../../constants/events';
 
 type Nav = CompositeNavigationProp<
@@ -137,6 +138,22 @@ export function HomeScreen() {
   const [vibe, setVibe] = useState<string | null>(null);
   const [personalColor, setPersonalColor] = useState<string | null>(null);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
+
+  // MEVE-202 — first-scan banner state
+  const lastSkinScore = useBeautyProfile((s) => s.lastSkinScore);
+  const [scanBannerDismissed, setScanBannerDismissed] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem('meve_scan_banner_dismissed').then((v) => {
+      if (v === 'true') setScanBannerDismissed(true);
+    });
+  }, []);
+  const showFirstScanBanner = lastSkinScore == null && !scanBannerDismissed;
+  const dismissScanBanner = async () => {
+    setScanBannerDismissed(true);
+    try {
+      await AsyncStorage.setItem('meve_scan_banner_dismissed', 'true');
+    } catch {}
+  };
 
   // Calendar state
   const now = new Date();
@@ -435,6 +452,39 @@ export function HomeScreen() {
             />
           </View>
         </View>
+
+        {/* ── FIRST SCAN BANNER ───────────────────────────────────────── */}
+        {showFirstScanBanner && (
+          <View style={styles.firstScanBanner}>
+            <TouchableOpacity
+              onPress={dismissScanBanner}
+              hitSlop={10}
+              style={styles.firstScanCloseBtn}
+            >
+              <Ionicons name="close" size={16} color="#8A8A9A" />
+            </TouchableOpacity>
+            <Text style={styles.firstScanTitle}>
+              ✨ AI 피부 스캔으로 내 피부를 분석해봐요
+            </Text>
+            <Text style={styles.firstScanSub}>
+              지금 스캔하면 맞춤 루틴과 메이크업을 추천해드려요
+            </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Skin')}
+              activeOpacity={0.85}
+              style={styles.firstScanCtaShadow}
+            >
+              <LinearGradient
+                colors={MEVE_GRADIENT_SIMPLE.colors}
+                start={MEVE_GRADIENT_SIMPLE.start}
+                end={MEVE_GRADIENT_SIMPLE.end}
+                style={styles.firstScanCta}
+              >
+                <Text style={styles.firstScanCtaText}>지금 스캔하기 →</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* ── CALENDAR (collapsible) ──────────────────────────────────── */}
         <GlassCard style={styles.calendarCardLayout} radius={20} padding={0}>
@@ -947,6 +997,64 @@ const styles = StyleSheet.create({
   calendarCardLayout: {
     marginHorizontal: 20,
     marginBottom: 16,
+  },
+
+  // First-scan banner (MEVE-202)
+  firstScanBanner: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    paddingTop: 18,
+    borderWidth: 1,
+    borderColor: '#FFE0EC',
+    shadowColor: '#FF6B9D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 2,
+    gap: 6,
+  },
+  firstScanCloseBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 10,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  firstScanTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  firstScanSub: {
+    fontSize: 12,
+    color: '#8A8A9A',
+    lineHeight: 17,
+    marginBottom: 10,
+  },
+  firstScanCtaShadow: {
+    borderRadius: 50,
+    shadowColor: '#FF6B9D',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+    alignSelf: 'flex-start',
+  },
+  firstScanCta: {
+    borderRadius: 50,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  firstScanCtaText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   calFoldHeader: {
     flexDirection: 'row',

@@ -16,6 +16,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../services/supabase';
 import { MainStackParamList, FaceAnalysisResult } from '../../types';
+import { useBeautyProfile } from '../../stores/beautyProfileStore';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'FaceAnalysisResult'>;
 type Rt = RouteProp<MainStackParamList, 'FaceAnalysisResult'>;
@@ -39,6 +40,17 @@ export function FaceAnalysisResultScreen() {
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(null);
+  const [feedbackGiven, setFeedbackGiven] = useState(false);
+  const [showCorrectionUI, setShowCorrectionUI] = useState(false);
+  const updateFromFaceAnalysis = useBeautyProfile((s) => s.updateFromFaceAnalysis);
+
+  // MEVE-233 — fallback handling for old cached results without these fields.
+  const confidence = result.confidence ?? 100;
+  const alternativeColor = result.alternativeColor ?? null;
+  const alternativeConfidence = result.alternativeConfidence ?? 0;
+  const confidenceColor =
+    confidence >= 80 ? '#7CB798' : confidence >= 60 ? '#FFB347' : '#FF6B6B';
 
   const handleSave = async () => {
     if (saving || saved) return;
@@ -47,26 +59,32 @@ export function FaceAnalysisResultScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('로그인이 필요해요');
 
-      const { error } = await supabase.from('face_analysis').insert({
-        user_id: user.id,
-        face_shape: result.faceShape,
-        personal_color: result.personalColor,
-        undertone: result.undertone,
-        eye_shape: result.eyeShape,
-        eye_tail: result.eyeTail,
-        lip_fullness: result.lipFullness,
-        skin_tone: result.skinTone,
-        makeup_recommendation: result.makeupRecommendation,
-        color_palette: result.colorPalette,
-        avoid_colors: result.avoidColors,
-        summary: result.summary,
-      });
+      const { data, error } = await supabase
+        .from('face_analysis')
+        .insert({
+          user_id: user.id,
+          face_shape: result.faceShape,
+          personal_color: result.personalColor,
+          undertone: result.undertone,
+          eye_shape: result.eyeShape,
+          eye_tail: result.eyeTail,
+          lip_fullness: result.lipFullness,
+          skin_tone: result.skinTone,
+          makeup_recommendation: result.makeupRecommendation,
+          color_palette: result.colorPalette,
+          avoid_colors: result.avoidColors,
+          summary: result.summary,
+        })
+        .select('id')
+        .single();
       if (error) throw error;
+      if (data?.id) setSavedAnalysisId(data.id as string);
 
       await AsyncStorage.multiSet([
         ['meve_personal_color', result.personalColor],
         ['meve_face_analysis', JSON.stringify(result)],
       ]);
+      await updateFromFaceAnalysis(result);
 
       setSaved(true);
       Alert.alert('저장 완료', '분석 결과가 저장되었어요 ✨');
@@ -77,22 +95,113 @@ export function FaceAnalysisResultScreen() {
     }
   };
 
-  const handleShare = async () => {
-    const message = [
-      `✨ 나의 AI 얼굴 분석 결과 ✨`,
-      ``,
-      `얼굴형: ${result.faceShape}`,
-      `퍼스널 컬러: ${result.personalColor} (${result.undertone})`,
-      `눈매: ${result.eyeShape}, ${result.eyeTail}`,
-      `입술: ${result.lipFullness}`,
-      `피부톤: ${result.skinTone}`,
-      ``,
-      result.summary,
-      ``,
-      `— meve에서 분석했어요 💕`,
-    ].join('\n');
+  const handleFeedback = async (isCorrect: boolean) => {
+    setFeedbackGiven(true);
     try {
-      await Share.share({ message });
+      if (savedAnalysisId) {
+        await supabase
+          .from('face_analysis')
+          .update({ user_confirmed: isCorrect })
+          .eq('id', savedAnalysisId);
+      }
+    } catch (e) {
+      console.warn('[face_analysis] feedback save failed:', e);
+    }
+    if (!isCorrect) {
+      setShowCorrectionUI(true);
+    } else {
+      Alert.alert('감사해요! 💕', '분석이 정확했군요. 더 나은 분석을 위해 노력할게요.');
+    }
+  };
+
+  const saveCorrectedValue = async (
+    field: 'personalColor' | 'faceShape' | 'eyeShape' | 'skinType',
+    value: string
+  ) => {
+    try {
+      if (savedAnalysisId) {
+        const dbField =
+          field === 'personalColor'
+            ? 'corrected_personal_color'
+            : field === 'faceShape'
+              ? 'corrected_face_shape'
+              : field === 'eyeShape'
+                ? 'corrected_eye_shape'
+                : 'corrected_skin_type';
+        await supabase
+          .from('face_analysis')
+          .update({
+            [dbField]: value,
+            user_confirmed: false,
+            correction_submitted_at: new Date().toISOString(),
+          })
+          .eq('id', savedAnalysisId);
+      }
+
+      const updateFn = useBeautyProfile.getState().updateFromFaceAnalysis;
+      if (field === 'personalColor') {
+        await updateFn({ personalColor: value });
+        await AsyncStorage.setItem('meve_personal_color', value);
+      } else if (field === 'faceShape') {
+        await updateFn({ faceShape: value });
+      } else if (field === 'eyeShape') {
+        await updateFn({ eyeShape: value });
+      } else if (field === 'skinType') {
+        await updateFn({ skinTone: value });
+      }
+
+      Alert.alert('수정됐어요! 💕', '더 나은 분석을 위해 반영할게요.');
+      setShowCorrectionUI(false);
+    } catch (e: any) {
+      Alert.alert('저장 실패', e?.message ?? '다시 시도해 주세요.');
+    }
+  };
+
+  const handleCorrectionCategory = (category: string) => {
+    if (category === '퍼스널 컬러') {
+      Alert.alert('퍼스널 컬러 수정', '실제 퍼스널 컬러를 선택해주세요', [
+        { text: '봄 웜톤', onPress: () => saveCorrectedValue('personalColor', '봄 웜톤') },
+        { text: '여름 쿨톤', onPress: () => saveCorrectedValue('personalColor', '여름 쿨톤') },
+        { text: '가을 웜톤', onPress: () => saveCorrectedValue('personalColor', '가을 웜톤') },
+        { text: '겨울 쿨톤', onPress: () => saveCorrectedValue('personalColor', '겨울 쿨톤') },
+        { text: '취소', style: 'cancel' },
+      ]);
+    } else if (category === '얼굴형') {
+      Alert.alert('얼굴형 수정', '실제 얼굴형을 선택해주세요', [
+        { text: '계란형', onPress: () => saveCorrectedValue('faceShape', '계란형') },
+        { text: '둥근형', onPress: () => saveCorrectedValue('faceShape', '둥근형') },
+        { text: '각진형', onPress: () => saveCorrectedValue('faceShape', '각진형') },
+        { text: '하트형', onPress: () => saveCorrectedValue('faceShape', '하트형') },
+        { text: '긴형', onPress: () => saveCorrectedValue('faceShape', '긴형') },
+        { text: '취소', style: 'cancel' },
+      ]);
+    } else if (category === '눈 타입') {
+      Alert.alert('눈 타입 수정', '실제 눈 타입을 선택해주세요', [
+        { text: '쌍꺼풀', onPress: () => saveCorrectedValue('eyeShape', '쌍꺼풀') },
+        { text: '무쌍', onPress: () => saveCorrectedValue('eyeShape', '무쌍') },
+        { text: '속쌍', onPress: () => saveCorrectedValue('eyeShape', '속쌍') },
+        { text: '두꺼운쌍꺼풀', onPress: () => saveCorrectedValue('eyeShape', '두꺼운쌍꺼풀') },
+        { text: '취소', style: 'cancel' },
+      ]);
+    } else if (category === '피부 타입') {
+      Alert.alert('피부 타입 수정', '실제 피부 타입을 선택해주세요', [
+        { text: '매우밝음', onPress: () => saveCorrectedValue('skinType', '매우밝음') },
+        { text: '밝음', onPress: () => saveCorrectedValue('skinType', '밝음') },
+        { text: '중간', onPress: () => saveCorrectedValue('skinType', '중간') },
+        { text: '어두운편', onPress: () => saveCorrectedValue('skinType', '어두운편') },
+        { text: '취소', style: 'cancel' },
+      ]);
+    }
+  };
+
+  const handleShare = async () => {
+    const personalColor = result?.personalColor ?? '';
+    const faceShape = result?.faceShape ?? '';
+    try {
+      await Share.share({
+        message: `meve AI 얼굴 분석 결과 ✨\n\n퍼스널컬러: ${personalColor}\n얼굴형: ${faceShape}\n\nmeve로 내 퍼스널컬러를 분석해봤어요!\n앱 다운로드 → https://meve.app`,
+        title: 'meve 얼굴 분석 결과 공유',
+      });
     } catch {}
   };
 
@@ -125,6 +234,41 @@ export function FaceAnalysisResultScreen() {
               <Text style={styles.undertoneText}>{result.undertone}</Text>
             </View>
           </View>
+
+          <View style={styles.confidenceRow}>
+            <Text style={styles.confidenceLabel}>분석 확신도</Text>
+            <View style={styles.confidenceBar}>
+              <View
+                style={[
+                  styles.confidenceFill,
+                  { width: `${confidence}%`, backgroundColor: confidenceColor },
+                ]}
+              />
+            </View>
+            <Text style={[styles.confidenceValue, { color: confidenceColor }]}>
+              {confidence}%
+            </Text>
+          </View>
+
+          {alternativeColor && (
+            <Text style={styles.alternativeText}>
+              차선: {alternativeColor} ({alternativeConfidence}% 가능성)
+            </Text>
+          )}
+
+          {confidence < 70 && (
+            <View style={styles.lowConfidenceCard}>
+              <Text style={styles.lowConfidenceText}>
+                📸 손목 안쪽 사진을 추가하면 더 정확하게 분석할 수 있어요
+              </Text>
+              <TouchableOpacity
+                style={styles.reAnalyzeBtn}
+                onPress={() => navigation.navigate('FaceAnalysis')}
+              >
+                <Text style={styles.reAnalyzeBtnText}>사진 추가하고 재분석하기 →</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <Text style={styles.paletteLabel}>추천 컬러 팔레트</Text>
           <View style={styles.paletteRow}>
@@ -217,6 +361,46 @@ export function FaceAnalysisResultScreen() {
           <Ionicons name="share-outline" size={16} color={BLUE} />
           <Text style={styles.shareBtnText}>공유하기</Text>
         </TouchableOpacity>
+
+        {/* Section 6 — Feedback */}
+        {!feedbackGiven && (
+          <View style={styles.feedbackCard}>
+            <Text style={styles.feedbackTitle}>이 분석이 맞나요?</Text>
+            <View style={styles.feedbackRow}>
+              <TouchableOpacity
+                style={styles.feedbackBtnYes}
+                onPress={() => handleFeedback(true)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.feedbackBtnText}>✅ 맞아요</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.feedbackBtnNo}
+                onPress={() => handleFeedback(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.feedbackBtnText}>❌ 아닌 것 같아요</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {showCorrectionUI && (
+          <View style={styles.correctionCard}>
+            <Text style={styles.correctionTitle}>어떤 부분이 다른가요?</Text>
+            {['퍼스널 컬러', '얼굴형', '눈 타입', '피부 타입'].map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={styles.correctionItem}
+                onPress={() => handleCorrectionCategory(category)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.correctionItemText}>{category}</Text>
+                <Ionicons name="chevron-forward" size={16} color="#8A8A9A" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -359,4 +543,121 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   shareBtnText: { fontSize: 14, fontWeight: '700', color: BLUE },
+
+  // Confidence + alternative
+  confidenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  confidenceLabel: {
+    fontSize: 12,
+    color: '#9A8F97',
+    fontWeight: '600',
+  },
+  confidenceBar: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#F0F0F0',
+    marginHorizontal: 8,
+    overflow: 'hidden',
+  },
+  confidenceFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  confidenceValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    minWidth: 36,
+    textAlign: 'right',
+  },
+  alternativeText: {
+    fontSize: 12,
+    color: '#8A8A9A',
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  lowConfidenceCard: {
+    marginTop: 10,
+    backgroundColor: '#FFF5F9',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFC4D6',
+    padding: 12,
+    gap: 8,
+  },
+  lowConfidenceText: {
+    fontSize: 13,
+    color: '#5C525B',
+    lineHeight: 18,
+  },
+  reAnalyzeBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: ACCENT,
+  },
+  reAnalyzeBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+
+  // Feedback
+  feedbackCard: {
+    marginTop: 10,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#F0E6EC',
+    gap: 10,
+  },
+  feedbackTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2D2D2D',
+    textAlign: 'center',
+  },
+  feedbackRow: { flexDirection: 'row', gap: 10 },
+  feedbackBtnYes: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#E9F6EE',
+    alignItems: 'center',
+  },
+  feedbackBtnNo: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#FCEDED',
+    alignItems: 'center',
+  },
+  feedbackBtnText: { fontSize: 13, fontWeight: '700', color: '#2D2D2D' },
+
+  correctionCard: {
+    marginTop: 10,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#F0E6EC',
+    gap: 6,
+  },
+  correctionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2D2D2D',
+    marginBottom: 4,
+  },
+  correctionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#F5EFF3',
+  },
+  correctionItemText: { fontSize: 13, color: '#2D2D2D' },
 });

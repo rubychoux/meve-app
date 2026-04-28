@@ -21,7 +21,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MainStackParamList, ScanAnalysisResult } from '../../types';
+import { MainStackParamList } from '../../types';
+import { useBeautyProfile } from '../../stores/beautyProfileStore';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'RoutineCoachChat'>;
 
@@ -43,25 +44,18 @@ const SUGGESTED_QUESTIONS = [
   '지금 루틴 괜찮나요?',
 ];
 
-function buildSystemPrompt(ctx: {
-  skinType: string;
-  concerns: string;
-  eventType: string;
-  daysLeft: string;
-  lastScore: string;
-}) {
+function buildSystemPrompt(profileContext: string) {
   return `You are meve's friendly AI skincare coach.
 Speak in warm Korean 해요체. Be concise (2-4 sentences per response).
-User's skin profile:
-- Skin type: ${ctx.skinType}
-- Concerns: ${ctx.concerns}
-- Event: ${ctx.eventType}, D-${ctx.daysLeft}
-- Recent score: ${ctx.lastScore}점
+
+${profileContext}
+
 Always personalize advice to their profile. Never diagnose medically.`;
 }
 
 export function RoutineCoachChatScreen() {
   const navigation = useNavigation<Nav>();
+  const getProfileContext = useBeautyProfile((s) => s.getProfileContext);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -72,47 +66,12 @@ export function RoutineCoachChatScreen() {
   const dot2 = useRef(new Animated.Value(0.3)).current;
   const dot3 = useRef(new Animated.Value(0.3)).current;
 
-  const [profileCtx, setProfileCtx] = useState({
-    skinType: '정보 없음',
-    concerns: '정보 없음',
-    eventType: '없음',
-    daysLeft: '미설정',
-    lastScore: '미측정',
-  });
-
-  // Load history + profile on mount
+  // Load chat history on mount
   useEffect(() => {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) setMessages(JSON.parse(raw) as ChatMessage[]);
-      } catch {}
-
-      try {
-        const [
-          [, scanRaw],
-          [, storedEventType],
-          [, ddayDate],
-        ] = await AsyncStorage.multiGet([
-          'meve_last_scan_result',
-          'meve_event_type',
-          'meve_event_date',
-        ]);
-        const scan: ScanAnalysisResult | null = scanRaw ? JSON.parse(scanRaw) : null;
-        const daysLeft = ddayDate
-          ? Math.max(
-              0,
-              Math.ceil((new Date(ddayDate).getTime() - Date.now()) / 86_400_000)
-            )
-          : null;
-        setProfileCtx({
-          skinType: scan?.skinType ?? '정보 없음',
-          concerns: scan?.concerns?.join(', ') ?? '정보 없음',
-          eventType: storedEventType ?? '없음',
-          daysLeft: daysLeft != null ? String(daysLeft) : '미설정',
-          lastScore:
-            scan?.overallScore != null ? String(scan.overallScore) : '미측정',
-        });
       } catch {}
     })();
   }, []);
@@ -165,7 +124,7 @@ export function RoutineCoachChatScreen() {
     setSending(true);
 
     try {
-      const systemPrompt = buildSystemPrompt(profileCtx);
+      const systemPrompt = buildSystemPrompt(getProfileContext());
       const gptMessages = [
         { role: 'system', content: systemPrompt },
         ...nextHistory.map((m) => ({ role: m.role, content: m.content })),

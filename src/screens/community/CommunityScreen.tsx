@@ -18,19 +18,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CompositeNavigationProp } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 import { MEVE_GRADIENT_SIMPLE } from '../../constants/theme';
+import { useBeautyProfile } from '../../stores/beautyProfileStore';
 import {
   MainStackParamList,
   MainTabParamList,
   Post,
   ProductTag,
-  FaceAnalysisResult,
 } from '../../types';
 
 const logo = require('../../../assets/images/meve-logo.png');
@@ -92,16 +91,6 @@ const FACE_SHAPES = ['계란형', '하트형', '둥근형', '각진형', '긴형
 const isValidValue = (val: string | null | undefined): val is string =>
   !!val && val.trim() !== '' && val.toLowerCase() !== 'unknown';
 
-function normalizePersonalColor(input: string | null | undefined): string | null {
-  if (!input) return null;
-  const t = input.replace(/\s+/g, '');
-  if (t.includes('여름') && t.includes('쿨톤')) return '여름 쿨톤';
-  if (t.includes('겨울') && t.includes('쿨톤')) return '겨울 쿨톤';
-  if (t.includes('봄') && t.includes('웜톤')) return '봄 웜톤';
-  if (t.includes('가을') && t.includes('웜톤')) return '가을 웜톤';
-  return input;
-}
-
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60_000);
@@ -130,16 +119,6 @@ interface MyProfile {
   skin_type: string | null;
 }
 
-const EMPTY_PROFILE: MyProfile = {
-  skinScore: null,
-  personal_color: null,
-  vibe: null,
-  face_shape: null,
-  event_type: null,
-  dday_count: null,
-  skin_type: null,
-};
-
 type FeedTab = 'mine' | 'all';
 type FilterKey = 'event' | 'skin' | 'color' | 'vibe' | 'face';
 
@@ -148,9 +127,46 @@ export function CommunityScreen() {
 
   const [feedTab, setFeedTab] = useState<FeedTab>('mine');
 
-  // My profile (for 내 핏 + hero card)
-  const [profile, setProfile] = useState<MyProfile>(EMPTY_PROFILE);
-  const [profileLoaded, setProfileLoaded] = useState(false);
+  // Source of truth: beauty profile store
+  const storeLoaded = useBeautyProfile((s) => s.isLoaded);
+  const storeSkinType = useBeautyProfile((s) => s.skinType);
+  const storeSkinScore = useBeautyProfile((s) => s.lastSkinScore);
+  const storePersonalColor = useBeautyProfile((s) => s.personalColor);
+  const storeVibe = useBeautyProfile((s) => s.vibe);
+  const storeFaceShape = useBeautyProfile((s) => s.faceShape);
+  const storeEventType = useBeautyProfile((s) => s.eventType);
+  const storeEventDate = useBeautyProfile((s) => s.eventDate);
+  const storeLoadProfile = useBeautyProfile((s) => s.loadProfile);
+
+  const profile: MyProfile = React.useMemo(() => {
+    let dday_count: number | null = null;
+    if (storeEventDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const target = new Date(storeEventDate);
+      target.setHours(0, 0, 0, 0);
+      dday_count = Math.ceil((target.getTime() - today.getTime()) / 86_400_000);
+    }
+    return {
+      skinScore: storeSkinScore,
+      personal_color: isValidValue(storePersonalColor) ? storePersonalColor : null,
+      vibe: isValidValue(storeVibe) ? storeVibe : null,
+      face_shape: isValidValue(storeFaceShape) ? storeFaceShape : null,
+      event_type: isValidValue(storeEventType) ? storeEventType : null,
+      dday_count,
+      skin_type: isValidValue(storeSkinType) ? storeSkinType : null,
+    };
+  }, [
+    storeSkinScore,
+    storePersonalColor,
+    storeVibe,
+    storeFaceShape,
+    storeEventType,
+    storeEventDate,
+    storeSkinType,
+  ]);
+  const profileLoaded = storeLoaded;
+
   const [similarCount, setSimilarCount] = useState<number | null>(null);
 
   // Manual filters (used in 전체 tab; also overlaid onto auto-filters)
@@ -170,87 +186,6 @@ export function CommunityScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-
-  // ── Load profile ─────────────────────────────────────────────────────────
-  const loadProfile = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      const pairs = await AsyncStorage.multiGet([
-        'meve_personal_color',
-        'meve_vibe',
-        'meve_face_analysis',
-        'meve_event_type',
-        'meve_event_date',
-        'meve_last_scan_score',
-      ]);
-      const m = Object.fromEntries(pairs) as Record<string, string | null>;
-
-      const personal_color = normalizePersonalColor(m['meve_personal_color']);
-      const vibe = isValidValue(m['meve_vibe']) ? m['meve_vibe'] : null;
-
-      let face_shape: string | null = null;
-      if (m['meve_face_analysis']) {
-        try {
-          const parsed = JSON.parse(m['meve_face_analysis']) as FaceAnalysisResult;
-          const fs = parsed.faceShape;
-          face_shape = isValidValue(fs) ? fs : null;
-        } catch {}
-      }
-
-      const event_type = isValidValue(m['meve_event_type']) ? m['meve_event_type'] : null;
-      let dday_count: number | null = null;
-      if (m['meve_event_date']) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const target = new Date(m['meve_event_date']);
-        target.setHours(0, 0, 0, 0);
-        dday_count = Math.ceil((target.getTime() - today.getTime()) / 86_400_000);
-      }
-
-      // Skin score: AsyncStorage primary, fallback to most recent skin_scans row
-      let skinScore: number | null = m['meve_last_scan_score']
-        ? Number(m['meve_last_scan_score']) || null
-        : null;
-      let skin_type: string | null = null;
-
-      if (user) {
-        if (skinScore == null) {
-          const { data: scanRows } = await supabase
-            .from('skin_scans')
-            .select('scan_result')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          if (scanRows && scanRows.length > 0) {
-            const sc = (scanRows[0] as any).scan_result?.overallScore;
-            if (typeof sc === 'number') skinScore = sc;
-          }
-        }
-        const { data: profRow } = await supabase
-          .from('user_profiles')
-          .select('skin_type')
-          .eq('id', user.id)
-          .maybeSingle();
-        const rawSkinType = profRow?.skin_type ?? null;
-        skin_type = isValidValue(rawSkinType) ? rawSkinType : null;
-      }
-
-      setProfile({
-        skinScore,
-        personal_color: isValidValue(personal_color) ? personal_color : null,
-        vibe,
-        face_shape,
-        event_type,
-        dday_count,
-        skin_type,
-      });
-    } catch {
-      setProfile(EMPTY_PROFILE);
-    } finally {
-      setProfileLoaded(true);
-    }
-  }, []);
 
   // ── Fetch posts ──────────────────────────────────────────────────────────
   const fetchPosts = useCallback(async () => {
@@ -410,9 +345,9 @@ export function CommunityScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadProfile();
+      storeLoadProfile();
       fetchUnreadCount();
-    }, [loadProfile, fetchUnreadCount])
+    }, [storeLoadProfile, fetchUnreadCount])
   );
 
   useEffect(() => {
@@ -425,7 +360,7 @@ export function CommunityScreen() {
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadProfile().then(() => {
+    storeLoadProfile().then(() => {
       fetchPosts();
       fetchSimilarCount();
     });

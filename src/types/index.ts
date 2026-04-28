@@ -135,6 +135,7 @@ export interface Insight {
 
 export type RootStackParamList = {
   Onboarding: undefined;
+  BeautyOnboarding: undefined;
   Main: undefined;
 };
 
@@ -173,6 +174,7 @@ export type MainStackParamList = {
   InspoLook: undefined;
   InspoLookResult: { result: InspoLookResult; imageUri?: string; keyword?: string };
   InspoLookSaved: undefined;
+  ColorMatch: undefined;
   GlamSyncList: undefined;
   GlamSyncCreate: undefined;
   GlamSyncDetail: { syncId: string };
@@ -323,6 +325,10 @@ export interface FaceAnalysisResult {
   faceShapeReason?: string;
   personalColor: string;
   personalColorReason?: string;
+  // MEVE-233 — confidence + alternative
+  confidence?: number;
+  alternativeColor?: string | null;
+  alternativeConfidence?: number;
   undertone: string;
   eyeShape: string;
   eyeTail: string;

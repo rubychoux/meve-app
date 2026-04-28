@@ -552,16 +552,16 @@ Max 4 recommended, 3 avoid. All text in Korean.`,
 
           {!generatedRoutine && !generatingRoutine ? (
             <View style={styles.generatedEmpty}>
-              <Ionicons name="sparkles-outline" size={40} color={Colors.accentMuted} />
+              <Text style={styles.generatedEmptyEmoji}>💙</Text>
               <Text style={styles.generatedEmptyText}>
-                AI가 피부 상태에 맞는{'\n'}맞춤 루틴을 만들어드려요
+                아직 루틴이 없어요.{'\n'}AI 루틴 코치에게 루틴을 만들어달라고 해봐요
               </Text>
               <TouchableOpacity
-                onPress={generateRoutine}
+                onPress={() => navigation.navigate('RoutineCoachChat')}
                 style={styles.generatedEmptyBtn}
                 activeOpacity={0.85}
               >
-                <Text style={styles.generatedEmptyBtnText}>루틴 생성하기</Text>
+                <Text style={styles.generatedEmptyBtnText}>루틴 만들기</Text>
               </TouchableOpacity>
             </View>
           ) : generatingRoutine ? (
@@ -1289,11 +1289,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  generatedEmptyEmoji: {
+    fontSize: 40,
+    marginBottom: 4,
+  },
   generatedEmptyText: {
     fontSize: 15,
-    color: '#999',
+    color: '#5C525B',
     marginTop: 12,
     textAlign: 'center',
+    lineHeight: 22,
   },
   generatedEmptyBtn: {
     backgroundColor: Colors.accent,
