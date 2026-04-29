@@ -18,6 +18,14 @@ import Svg, { Path, Ellipse } from 'react-native-svg';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
 import { MainStackParamList, ScanAnalysisResult } from '../../types';
+import { handleFirstScanCompleted } from '../../services/routineNotifications';
+import { getMonthlyCount, isPremiumNow } from '../../services/premium';
+import { PremiumUpsellModal } from '../../components/PremiumUpsellModal';
+import { cleanJson } from '../../utils/openai';
+import {
+  SkinScanGuideModal,
+  SKIP_GUIDE_KEY,
+} from '../../components/SkinScanGuideModal';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
@@ -151,6 +159,7 @@ export function FaceScannerScreen() {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7, base64: true });
       if (!photo.base64) throw new Error('base64 없음');
       const result = await runAnalysis(photo.base64);
+      await handleFirstScanCompleted();
       navigation.navigate('ScanResult', { result });
     } catch (e: any) {
       console.error('[handleCapture] error:', e);
@@ -183,7 +192,9 @@ export function FaceScannerScreen() {
       },
       summary: '복합성 피부로 T존 관리가 필요한 상태예요. 전반적인 피부 톤은 균일하니까,\n피지 조절 성분을 중심으로 루틴을 짜면 금세 맑아질 거예요. 함께 관리해봐요 💕',
     };
-    navigation.navigate('ScanResult', { result: mockResult });
+    void handleFirstScanCompleted().finally(() => {
+      navigation.navigate('ScanResult', { result: mockResult });
+    });
   };
 
   // ── 권한 미승인 ───────────────────────────────────────────────────────────
@@ -213,7 +224,16 @@ export function FaceScannerScreen() {
 
   // ── 카메라 뷰 ─────────────────────────────────────────────────────────────
   return (
-    <View style={styles.cameraContainer}>
+    <View style={styles.cameraContainer} onLayout={handleContainerLayout}>
+      <PremiumUpsellModal
+        visible={upsellOpen}
+        onClose={() => setUpsellOpen(false)}
+        onUpgrade={() => {
+          setUpsellOpen(false);
+          navigation.navigate('Paywall', { source: 'face_scan_limit' });
+        }}
+        subtitle="무료 플랜은 AI 피부 스캔을 월 3회까지 이용할 수 있어요."
+      />
       <CameraView
         ref={cameraRef}
         style={StyleSheet.absoluteFill}

@@ -4,6 +4,28 @@ import { MainStackParamList } from '../types';
 import { MainNavigator } from './MainNavigator';
 import { EventStackNavigator } from './EventStackNavigator';
 import { ScanResultScreen } from '../screens/scanner/ScanResultScreen';
+import { PaywallScreen } from '../screens/paywall/PaywallScreen';
+import { ProfileEditScreen } from '../screens/profile/ProfileEditScreen';
+import { NotificationSettingsScreen } from '../screens/profile/NotificationSettingsScreen';
+import { PrivacyPolicyScreen } from '../screens/profile/PrivacyPolicyScreen';
+import { TermsOfServiceScreen } from '../screens/profile/TermsOfServiceScreen';
+import { FaceAnalysisScreen } from '../screens/look/FaceAnalysisScreen';
+import { FaceAnalysisResultScreen } from '../screens/look/FaceAnalysisResultScreen';
+import { TodaysLookScreen } from '../screens/look/TodaysLookScreen';
+import { LookDetailScreen } from '../screens/look/LookDetailScreen';
+import { InspoLookScreen } from '../screens/look/InspoLookScreen';
+import { InspoLookResultScreen } from '../screens/look/InspoLookResultScreen';
+import { InspoLookSavedScreen } from '../screens/look/InspoLookSavedScreen';
+import { GlamSyncListScreen } from '../screens/community/GlamSyncListScreen';
+import { GlamSyncCreateScreen } from '../screens/community/GlamSyncCreateScreen';
+import { GlamSyncDetailScreen } from '../screens/community/GlamSyncDetailScreen';
+import { LookPollListScreen } from '../screens/community/LookPollListScreen';
+import { LookPollCreateScreen } from '../screens/community/LookPollCreateScreen';
+import { LookPollDetailScreen } from '../screens/community/LookPollDetailScreen';
+import { CreatePostScreen } from '../screens/community/CreatePostScreen';
+import { PostDetailScreen } from '../screens/community/PostDetailScreen';
+import { RoutineCoachChatScreen } from '../screens/skincare/RoutineCoachChatScreen';
+import { NotificationScreen } from '../screens/community/NotificationScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -32,6 +54,7 @@ export function MainStackNavigator() {
       <Stack.Screen name="LookDetail" component={LookDetailScreen} />
       <Stack.Screen name="InspoLook" component={InspoLookScreen} />
       <Stack.Screen name="InspoLookResult" component={InspoLookResultScreen} />
+      <Stack.Screen name="InspoLookSaved" component={InspoLookSavedScreen} />
       <Stack.Screen name="GlamSyncList" component={GlamSyncListScreen} />
       <Stack.Screen name="GlamSyncCreate" component={GlamSyncCreateScreen} />
       <Stack.Screen name="GlamSyncDetail" component={GlamSyncDetailScreen} />

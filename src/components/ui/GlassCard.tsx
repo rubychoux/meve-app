@@ -2,7 +2,6 @@
 // Used on Home tab cards (calendar, dual SKIN/LOOK, h-scroll, tip).
 import React from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 
 interface GlassCardProps {
@@ -34,11 +33,12 @@ export function GlassCard({
   return (
     <View style={[styles.shadow, { borderRadius: radius }, style]}>
       <View style={[styles.clip, { borderRadius: radius }]}>
-        <BlurView
-          intensity={intensity}
-          tint={tint}
-          experimentalBlurMethod="dimezisBlurView"
-          style={StyleSheet.absoluteFillObject}
+        <View
+          style={[
+            StyleSheet.absoluteFillObject,
+            styles.fallbackTint,
+            tint === 'dark' ? styles.tintDark : tint === 'default' ? styles.tintDefault : styles.tintLight,
+          ]}
         />
         <LinearGradient
           colors={sheenColors ?? DEFAULT_SHEEN}
@@ -66,6 +66,18 @@ const styles = StyleSheet.create({
   clip: {
     overflow: 'hidden',
     backgroundColor: 'rgba(255,255,255,0.55)',
+  },
+  fallbackTint: {
+    opacity: 0.9,
+  },
+  tintLight: {
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  tintDefault: {
+    backgroundColor: 'rgba(245,245,245,0.40)',
+  },
+  tintDark: {
+    backgroundColor: 'rgba(30,30,30,0.25)',
   },
   inner: {
     borderWidth: 1,
