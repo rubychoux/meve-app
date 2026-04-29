@@ -1,6 +1,8 @@
 import React from 'react';
+import { View, Image, StyleSheet, ImageSourcePropType } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MainTabParamList } from '../types';
 import { Typography } from '../constants/theme';
 import { HomeScreen } from '../screens/home/HomeScreen';
@@ -11,56 +13,94 @@ import { MyPageScreen } from '../screens/mypage/MyPageScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-type IoniconsName = keyof typeof Ionicons.glyphMap;
-
-const tabIcons: Record<string, { active: IoniconsName; inactive: IoniconsName }> = {
-  Home:      { active: 'home',          inactive: 'home-outline' },
-  Skin:      { active: 'body',          inactive: 'body-outline' },
-  Look:      { active: 'color-palette', inactive: 'color-palette-outline' },
-  Community: { active: 'sparkles',      inactive: 'sparkles-outline' },
-  MyPage:    { active: 'person',        inactive: 'person-outline' },
+// NOTE: tab-*-active.png variants do not exist yet. Once added, swap the
+// `active` entries below to point at the *-active.png files.
+const tabIcons: Record<
+  string,
+  { active: ImageSourcePropType; inactive: ImageSourcePropType }
+> = {
+  Home: {
+    active: require('../../assets/icons/tab-home.png'),
+    inactive: require('../../assets/icons/tab-home.png'),
+  },
+  Skin: {
+    active: require('../../assets/icons/tab-skin.png'),
+    inactive: require('../../assets/icons/tab-skin.png'),
+  },
+  Look: {
+    active: require('../../assets/icons/tab-look.png'),
+    inactive: require('../../assets/icons/tab-look.png'),
+  },
+  Community: {
+    active: require('../../assets/icons/tab-eve.png'),
+    inactive: require('../../assets/icons/tab-eve.png'),
+  },
+  MyPage: {
+    active: require('../../assets/icons/tab-mypage.png'),
+    inactive: require('../../assets/icons/tab-mypage.png'),
+  },
 };
 
 const labels: Record<string, string> = {
-  Home:      '홈',
-  Skin:      'SKIN',
-  Look:      'LOOK',
+  Home: '홈',
+  Skin: 'SKIN',
+  Look: 'LOOK',
   Community: 'eve',
-  MyPage:    '마이페이지',
+  MyPage: '마이페이지',
 };
 
-const ACTIVE_TINT: Record<string, string> = {
-  Home: '#FF6B9D',
-  Skin: '#5BA3D9',
-  Look: '#FF6B9D',
-  Community: '#FF6B9D',
-  MyPage: '#8A8A9A',
-};
+function TabBarBackground() {
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <BlurView
+        intensity={40}
+        tint="light"
+        experimentalBlurMethod="dimezisBlurView"
+        style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        colors={['rgba(249,196,216,0.18)', 'rgba(184,212,240,0.10)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={tabStyles.topHairline} />
+    </View>
+  );
+}
 
 export function MainNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ focused, color }) => {
-          const icons = tabIcons[route.name];
-          const name = icons ? (focused ? icons.active : icons.inactive) : 'ellipse-outline';
-          return <Ionicons name={name} size={24} color={color} />;
+        tabBarBackground: () => <TabBarBackground />,
+        tabBarIcon: ({ focused }) => {
+          const set = tabIcons[route.name];
+          if (!set) return null;
+          return (
+            <Image
+              source={focused ? set.active : set.inactive}
+              style={tabStyles.icon}
+            />
+          );
         },
         tabBarLabel: labels[route.name],
-        tabBarActiveTintColor: ACTIVE_TINT[route.name] ?? '#8A8A9A',
+        tabBarActiveTintColor: '#FF6B9D',
         tabBarInactiveTintColor: '#C0C0CC',
         tabBarStyle: {
-          backgroundColor: 'rgba(255,255,255,0.95)',
-          borderTopColor: 'rgba(220,220,230,0.5)',
-          borderTopWidth: 1,
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
           height: 84,
           paddingBottom: 20,
           paddingTop: 8,
+          elevation: 0,
         },
         tabBarLabelStyle: {
           ...Typography.caption,
-          marginTop: 2,
+          fontFamily: 'NanumSquareRoundB',
+          fontSize: 10,
+          marginTop: 9,
         },
       })}
     >
@@ -72,3 +112,19 @@ export function MainNavigator() {
     </Tab.Navigator>
   );
 }
+
+const tabStyles = StyleSheet.create({
+  topHairline: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  icon: {
+    width: 96,
+    height: 96,
+    resizeMode: 'contain',
+  },
+});

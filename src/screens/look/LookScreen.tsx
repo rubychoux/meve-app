@@ -72,6 +72,7 @@ export function LookScreen() {
   const navigation = useNavigation<Nav>();
   const [selected, setSelected] = useState<AestheticKey | null>(null);
   const [savedFaceAnalysis, setSavedFaceAnalysis] = useState<FaceAnalysisResult | null>(null);
+  const [savedInspoCount, setSavedInspoCount] = useState(0);
 
   const selectedAesthetic = AESTHETICS.find((a) => a.key === selected);
 
@@ -97,10 +98,21 @@ export function LookScreen() {
     }
   }, []);
 
+  const loadSavedInspoCount = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem('meve_inspo_looks');
+      const list = raw ? JSON.parse(raw) : [];
+      setSavedInspoCount(Array.isArray(list) ? list.length : 0);
+    } catch {
+      setSavedInspoCount(0);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       loadSavedFaceAnalysis();
-    }, [loadSavedFaceAnalysis])
+      loadSavedInspoCount();
+    }, [loadSavedFaceAnalysis, loadSavedInspoCount])
   );
 
   const handleSelect = async (key: AestheticKey) => {
@@ -251,6 +263,18 @@ export function LookScreen() {
             <Ionicons name="image-outline" size={18} color="#fff" />
             <Text style={styles.inspoBtnText}>사진 업로드하기</Text>
           </TouchableOpacity>
+          {savedInspoCount > 0 && (
+            <TouchableOpacity
+              style={styles.inspoSavedLink}
+              onPress={() => navigation.navigate('InspoLookSaved')}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="bookmark" size={14} color="#FF6B9D" />
+              <Text style={styles.inspoSavedLinkText}>
+                저장한 인스포 룩 {savedInspoCount}개 보기 →
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -263,9 +287,9 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 40 },
 
   header: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 0,
   },
   wordmark: {
     fontSize: 20,
@@ -401,4 +425,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   inspoBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  inspoSavedLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 8,
+    paddingVertical: 6,
+  },
+  inspoSavedLinkText: {
+    fontSize: 12,
+    color: '#FF6B9D',
+    fontWeight: '600',
+  },
 });

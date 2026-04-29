@@ -14,6 +14,10 @@ import {
 } from 'react-native';
 
 const logo = require('../../../assets/images/meve-logo.png');
+import { LinearGradient } from 'expo-linear-gradient';
+import { GlassCard } from '../../components/ui/GlassCard';
+import { BubbleIcon } from '../../components/ui/BubbleIcon';
+import { MEVE_GRADIENT } from '../../constants/theme';
 
 if (
   Platform.OS === 'android' &&
@@ -366,7 +370,14 @@ export function HomeScreen() {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FAFBFC" />
+      <LinearGradient
+        colors={['#FFF7FB', '#F8F2FF', '#F2F7FE']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF7FB" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -416,16 +427,18 @@ export function HomeScreen() {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.settingsBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="settings-outline" size={22} color="#8A8A9A" />
-          </TouchableOpacity>
+          <View style={styles.avatarBtn}>
+            <BubbleIcon
+              icon="person"
+              size={44}
+              iconSize={22}
+              colors={MEVE_GRADIENT.colors}
+            />
+          </View>
         </View>
 
         {/* ── CALENDAR (collapsible) ──────────────────────────────────── */}
-        <View style={styles.calendarCard}>
+        <GlassCard style={styles.calendarCardLayout} radius={20} padding={0}>
           <TouchableOpacity
             style={styles.calFoldHeader}
             onPress={toggleCalendar}
@@ -503,8 +516,8 @@ export function HomeScreen() {
                       styles.calDayNum,
                       colIdx === 0 && { color: '#FF6B6B' },
                       colIdx === 6 && { color: '#74B9FF' },
-                      isToday && { color: '#fff', fontWeight: '700' },
-                      isSelected && !isToday && { color: '#F2A7C3', fontWeight: '700' },
+                      isToday && { color: '#fff', fontFamily: 'NanumSquareRoundB' },
+                      isSelected && !isToday && { color: '#F2A7C3', fontFamily: 'NanumSquareRoundB' },
                     ]}>
                       {day}
                     </Text>
@@ -549,7 +562,7 @@ export function HomeScreen() {
                 <View style={styles.calSelectedScore}>
                   <View style={[styles.calSelectedDot, { backgroundColor: scoreColor(selectedScore) }]} />
                   <Text style={styles.calSelectedText}>
-                    {calMonth + 1}월 {selectedDay}일 피부 점수: <Text style={{ fontWeight: '700', color: '#2D2D2D' }}>{selectedScore}점</Text>
+                    {calMonth + 1}월 {selectedDay}일 피부 점수: <Text style={{ fontFamily: 'NanumSquareRoundB', color: '#2D2D2D' }}>{selectedScore}점</Text>
                   </Text>
                 </View>
               ) : (
@@ -561,66 +574,90 @@ export function HomeScreen() {
           )}
           </View>
           )}
-        </View>
+        </GlassCard>
 
         {/* ── SECTION 2: SKIN + LOOK TODAY ────────────────────────────── */}
         <Text style={styles.sectionTitle}>오늘의 체크인</Text>
         <View style={styles.dualRow}>
           {/* SKIN */}
-          <View style={[styles.dualCard, styles.skinCard]}>
-            <View style={styles.dualCardHeader}>
-              <Ionicons name="body-outline" size={22} color="#5BA3D9" />
-              <Text style={[styles.dualCardTitle, { color: '#5BA3D9' }]}>SKIN</Text>
-            </View>
-            <View style={styles.dualCheckRow}>
-              <TouchableOpacity
-                style={styles.dualCheckItem}
-                onPress={() => toggleRoutine('am')}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.dualCheckCircle, routine.am && styles.dualCheckCircleDone]}>
-                  {routine.am && <Ionicons name="checkmark" size={13} color="#fff" />}
-                </View>
-                <Text style={styles.dualCheckLabel}>AM</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.dualCheckItem}
-                onPress={() => toggleRoutine('pm')}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.dualCheckCircle, routine.pm && styles.dualCheckCircleDone]}>
-                  {routine.pm && <Ionicons name="checkmark" size={13} color="#fff" />}
-                </View>
-                <Text style={styles.dualCheckLabel}>PM</Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              style={[styles.dualCta, { backgroundColor: '#5BA3D9' }]}
-              onPress={goToFaceScanner}
-              activeOpacity={0.85}
+          <View style={[styles.dualCardLayout, styles.dualCardShadow]}>
+            <LinearGradient
+              colors={['#FBFCFF', '#F2F6FF', '#E5EDFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.dualCardSurface, { borderColor: '#EBF1FF' }]}
             >
-              <Text style={styles.dualCtaText}>피부 스캔하기</Text>
-            </TouchableOpacity>
+              <Image
+                source={require('../../../assets/images/skin-title.png')}
+                style={styles.cardTitleImage}
+                resizeMode="contain"
+              />
+              <View style={styles.dualCheckRow}>
+                <TouchableOpacity
+                  style={styles.dualCheckItem}
+                  onPress={() => toggleRoutine('am')}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.dualCheckCircle, routine.am && styles.dualCheckCircleDone]}>
+                    {routine.am && <Ionicons name="checkmark" size={13} color="#fff" />}
+                  </View>
+                  <Text style={styles.dualCheckLabel}>AM</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.dualCheckItem}
+                  onPress={() => toggleRoutine('pm')}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.dualCheckCircle, routine.pm && styles.dualCheckCircleDone]}>
+                    {routine.pm && <Ionicons name="checkmark" size={13} color="#fff" />}
+                  </View>
+                  <Text style={styles.dualCheckLabel}>PM</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                onPress={goToFaceScanner}
+                activeOpacity={0.85}
+                style={styles.imageButton}
+              >
+                <Image
+                  source={require('../../../assets/images/btn-skin-scan.png')}
+                  style={styles.skinScanButtonImage}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            </LinearGradient>
           </View>
 
           {/* LOOK */}
-          <View style={[styles.dualCard, styles.lookCard]}>
-            <View style={styles.dualCardHeader}>
-              <Ionicons name="color-palette-outline" size={22} color="#FF6B9D" />
-              <Text style={[styles.dualCardTitle, { color: '#FF6B9D' }]}>LOOK</Text>
-            </View>
-            <View style={styles.dualBodyBox}>
-              <Text style={styles.lookVibeText} numberOfLines={2}>
-                {vibe ? `${vibe} 추구미` : '추구미를 선택해요'}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.dualCta, { backgroundColor: '#FF6B9D' }]}
-              onPress={() => navigation.navigate('Look')}
-              activeOpacity={0.85}
+          <View style={[styles.dualCardLayout, styles.dualCardShadow]}>
+            <LinearGradient
+              colors={['#FFFCFD', '#FFF4F9', '#FFE5F0']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.dualCardSurface, { borderColor: '#FFEEF5' }]}
             >
-              <Text style={styles.dualCtaText}>룩 찾기</Text>
-            </TouchableOpacity>
+              <Image
+                source={require('../../../assets/images/look-title.png')}
+                style={styles.cardTitleImage}
+                resizeMode="contain"
+              />
+              <View style={styles.dualBodyBox}>
+                <Text style={styles.lookVibeText} numberOfLines={2}>
+                  {vibe ? `${vibe} 추구미` : '추구미를 선택해요'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Look')}
+                activeOpacity={0.85}
+                style={styles.imageButton}
+              >
+                <Image
+                  source={require('../../../assets/images/btn-look-find.png')}
+                  style={styles.lookFindButtonImage}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            </LinearGradient>
           </View>
         </View>
 
@@ -632,8 +669,17 @@ export function HomeScreen() {
           contentContainerStyle={styles.hScrollContent}
         >
           {/* Card 1 — 최근 스캔 결과 */}
-          <View style={[styles.hCard, { borderLeftColor: '#5BA3D9' }]}>
-            <Text style={styles.hCardTitle}>최근 스캔 결과 📸</Text>
+          <GlassCard
+            style={styles.hCardLayout}
+            contentStyle={styles.hCardContent}
+            radius={18}
+            padding={14}
+            sheenColors={['rgba(168,213,232,0.30)', 'rgba(255,255,255,0.20)']}
+          >
+            <View style={styles.hCardHeader}>
+              <BubbleIcon icon="camera" size={28} iconSize={14} colors={['#A8D5E8', '#5BA3D9']} />
+              <Text style={styles.hCardTitle}>최근 스캔 결과</Text>
+            </View>
             {latestScan ? (
               <>
                 <Text style={[styles.hCardScore, styles.hCardScoreLatest]}>
@@ -649,11 +695,20 @@ export function HomeScreen() {
                 {latestScan ? '다시 스캔하기 →' : '스캔하러 가기 →'}
               </Text>
             </TouchableOpacity>
-          </View>
+          </GlassCard>
 
           {/* Card 2 — 오늘의 룩 미리보기 */}
-          <View style={[styles.hCard, { borderLeftColor: '#FF6B9D' }]}>
-            <Text style={styles.hCardTitle}>오늘의 룩 💄</Text>
+          <GlassCard
+            style={styles.hCardLayout}
+            contentStyle={styles.hCardContent}
+            radius={18}
+            padding={14}
+            sheenColors={['rgba(255,196,214,0.30)', 'rgba(255,255,255,0.20)']}
+          >
+            <View style={styles.hCardHeader}>
+              <BubbleIcon icon="sparkles" size={28} iconSize={14} colors={['#FFC4D6', '#FF6B9D']} />
+              <Text style={styles.hCardTitle}>오늘의 룩</Text>
+            </View>
             <Text style={styles.hCardBody}>
               {vibe
                 ? `${vibe} 추구미에 맞는 룩을 찾아볼까요?`
@@ -662,11 +717,20 @@ export function HomeScreen() {
             <TouchableOpacity onPress={() => navigation.navigate('Look')}>
               <Text style={[styles.hCardCta, { color: '#FF6B9D' }]}>LOOK에서 더 보기 →</Text>
             </TouchableOpacity>
-          </View>
+          </GlassCard>
 
           {/* Card 3 — 스킨 스코어 그래프 */}
-          <View style={[styles.hCard, { borderLeftColor: '#5BA3D9' }]}>
-            <Text style={styles.hCardTitle}>스킨 스코어 📈</Text>
+          <GlassCard
+            style={styles.hCardLayout}
+            contentStyle={styles.hCardContent}
+            radius={18}
+            padding={14}
+            sheenColors={['rgba(168,213,232,0.30)', 'rgba(255,255,255,0.20)']}
+          >
+            <View style={styles.hCardHeader}>
+              <BubbleIcon icon="trending-up" size={28} iconSize={14} colors={['#A8D5E8', '#5BA3D9']} />
+              <Text style={styles.hCardTitle}>스킨 스코어</Text>
+            </View>
             {scanRecords.length > 0 ? (
               <View style={styles.miniBarRow}>
                 {scanRecords.slice(0, 7).reverse().map((r, i) => (
@@ -688,11 +752,20 @@ export function HomeScreen() {
             <TouchableOpacity onPress={goToFaceScanner}>
               <Text style={[styles.hCardCta, { color: '#5BA3D9' }]}>자세히 보기 →</Text>
             </TouchableOpacity>
-          </View>
+          </GlassCard>
 
           {/* Card 4 — 퍼스널 컬러 */}
-          <View style={[styles.hCard, { borderLeftColor: '#FF6B9D' }]}>
-            <Text style={styles.hCardTitle}>퍼스널 컬러 ✨</Text>
+          <GlassCard
+            style={styles.hCardLayout}
+            contentStyle={styles.hCardContent}
+            radius={18}
+            padding={14}
+            sheenColors={['rgba(255,196,214,0.30)', 'rgba(196,184,232,0.20)']}
+          >
+            <View style={styles.hCardHeader}>
+              <BubbleIcon icon="color-filter" size={28} iconSize={14} colors={['#FFC4D6', '#C4B8E8']} />
+              <Text style={styles.hCardTitle}>퍼스널 컬러</Text>
+            </View>
             {personalColor ? (
               <>
                 <Text style={styles.hCardScore}>{personalColor}</Text>
@@ -717,11 +790,20 @@ export function HomeScreen() {
                 {personalColor ? '다시 분석하기 →' : '얼굴 분석하기 →'}
               </Text>
             </TouchableOpacity>
-          </View>
+          </GlassCard>
 
           {/* Card 5 — Scan Streak */}
-          <View style={[styles.hCard, { borderLeftColor: '#FFB347' }]}>
-            <Text style={styles.hCardTitle}>스캔 기록 🔥</Text>
+          <GlassCard
+            style={styles.hCardLayout}
+            contentStyle={styles.hCardContent}
+            radius={18}
+            padding={14}
+            sheenColors={['rgba(255,215,168,0.30)', 'rgba(255,255,255,0.20)']}
+          >
+            <View style={styles.hCardHeader}>
+              <BubbleIcon icon="flame" size={28} iconSize={14} colors={['#FFD7A8', '#FFB347']} />
+              <Text style={styles.hCardTitle}>스캔 기록</Text>
+            </View>
             <Text style={[styles.hCardScore, { color: '#B8860B' }]}>
               {streak}일
             </Text>
@@ -731,13 +813,27 @@ export function HomeScreen() {
             <TouchableOpacity onPress={goToFaceScanner}>
               <Text style={[styles.hCardCta, { color: '#B8860B' }]}>오늘 스캔하기 →</Text>
             </TouchableOpacity>
-          </View>
+          </GlassCard>
         </ScrollView>
 
         {/* ── SECTION 5: 오늘의 팁 ───────────────────────────────────────── */}
-        <View style={styles.tipCard}>
+        <GlassCard
+          style={styles.tipCardLayout}
+          contentStyle={styles.tipCardContent}
+          radius={18}
+          padding={14}
+        >
           <View style={styles.tipHeader}>
-            <Text style={styles.tipEmoji}>{tipLabel === 'SKIN' ? '💙' : '💄'}</Text>
+            <BubbleIcon
+              icon={tipLabel === 'SKIN' ? 'water' : 'flower'}
+              size={28}
+              iconSize={14}
+              colors={
+                tipLabel === 'SKIN'
+                  ? ['#A8D5E8', '#5BA3D9']
+                  : ['#FFC4D6', '#FF6B9D']
+              }
+            />
             <Text
               style={[
                 styles.tipLabel,
@@ -748,39 +844,22 @@ export function HomeScreen() {
             </Text>
           </View>
           <Text style={styles.tipBody}>{tipText}</Text>
-        </View>
+        </GlassCard>
 
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* ── SECTION 4: FLOATING QUICK ACTIONS ────────────────────────── */}
-      <View style={styles.fabRow} pointerEvents="box-none">
-        <TouchableOpacity
-          style={[styles.fab, styles.fabLook]}
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('Look')}
-        >
-          <Text style={styles.fabText}>💄 룩 찾기</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.fab, styles.fabSkin]}
-          activeOpacity={0.85}
-          onPress={goToFaceScanner}
-        >
-          <Text style={styles.fabText}>📸 피부 스캔</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const PAGE_BG = '#FAFBFC';
+const PAGE_BG = 'transparent';
 const PINK = '#F2A7C3';
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: PAGE_BG },
+  safeArea: { flex: 1, backgroundColor: '#FFF7FB' },
   scroll: { flex: 1, backgroundColor: PAGE_BG },
   content: { paddingBottom: 20 },
 
@@ -808,11 +887,12 @@ const styles = StyleSheet.create({
   },
   compactSubtitle: {
     fontSize: 12,
+    fontFamily: 'NanumSquareRoundL',
     color: '#8A8A9A',
   },
   compactName: {
     fontSize: 26,
-    fontWeight: '700',
+    fontFamily: 'NanumSquareRoundB',
     color: '#1A1A2E',
     marginBottom: 8,
   },
@@ -832,11 +912,12 @@ const styles = StyleSheet.create({
   },
   ddayPillTextSet: {
     fontSize: 13,
+    fontFamily: 'NanumSquareRoundB',
     color: '#FF6B9D',
-    fontWeight: '600',
   },
   ddayChangeLink: {
     fontSize: 11,
+    fontFamily: 'NanumSquareRoundL',
     color: '#8A8A9A',
   },
   ddayPillUnset: {
@@ -849,33 +930,24 @@ const styles = StyleSheet.create({
   },
   ddayPillTextUnset: {
     fontSize: 13,
+    fontFamily: 'NanumSquareRoundR',
     color: '#8A8A9A',
   },
-  settingsBtn: {
-    padding: 2,
+  avatarBtn: {
+    marginTop: 6,
   },
 
   // Section title
   sectionTitle: {
     fontSize: 17,
-    fontWeight: '600',
+    fontFamily: 'NanumSquareRoundB',
     color: '#1A1A2E',
     paddingHorizontal: 20,
     marginBottom: 12,
   },
-  calendarCard: {
+  calendarCardLayout: {
     marginHorizontal: 20,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(220,220,230,0.5)',
-    shadowColor: '#B0B0B0',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 3,
-    overflow: 'hidden',
   },
   calFoldHeader: {
     flexDirection: 'row',
@@ -887,7 +959,7 @@ const styles = StyleSheet.create({
   },
   calFoldTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'NanumSquareRoundB',
     color: '#2D2D2D',
   },
   calFoldPill: {
@@ -899,7 +971,7 @@ const styles = StyleSheet.create({
   },
   calFoldPillText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'NanumSquareRoundB',
     color: '#C44777',
   },
   calContent: {
@@ -915,7 +987,7 @@ const styles = StyleSheet.create({
   },
   calMonthText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'NanumSquareRoundB',
     color: '#2D2D2D',
   },
   calDayHeaders: {
@@ -926,8 +998,8 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     fontSize: 11,
+    fontFamily: 'NanumSquareRoundR',
     color: '#999',
-    fontWeight: '500',
   },
   calGrid: {
     flexDirection: 'row',
@@ -950,6 +1022,7 @@ const styles = StyleSheet.create({
   },
   calDayNum: {
     fontSize: 13,
+    fontFamily: 'NanumSquareRoundR',
     color: '#2D2D2D',
   },
   calDdayBadge: {
@@ -1005,10 +1078,12 @@ const styles = StyleSheet.create({
   },
   calSelectedText: {
     fontSize: 13,
+    fontFamily: 'NanumSquareRoundR',
     color: '#666',
   },
   calSelectedEmpty: {
     fontSize: 13,
+    fontFamily: 'NanumSquareRoundR',
     color: '#aaa',
     textAlign: 'center',
   },
@@ -1020,20 +1095,26 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 18,
   },
-  dualCard: {
+  dualCardLayout: {
     flex: 1,
+  },
+  dualCardShadow: {
+    borderRadius: 20,
+    shadowColor: '#B0B0B0',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  dualCardSurface: {
     borderRadius: 20,
     padding: 14,
-    gap: 10,
-    borderWidth: 1.5,
+    borderWidth: 1,
+    gap: 6,
+    overflow: 'hidden',
   },
-  skinCard: {
-    backgroundColor: '#E8F4FD',
-    borderColor: '#B8D8F0',
-  },
-  lookCard: {
-    backgroundColor: '#FFF0F5',
-    borderColor: '#FFC4D6',
+  dualCardContent: {
+    gap: 6,
   },
   dualCardHeader: {
     flexDirection: 'row',
@@ -1042,13 +1123,21 @@ const styles = StyleSheet.create({
   },
   dualCardTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'NanumSquareRoundB',
     letterSpacing: 0.5,
+  },
+  cardTitleImage: {
+    width: 140,
+    height: 55,
+    resizeMode: 'contain',
+    marginBottom: -10,
+    marginLeft: -27,
+    marginTop: -6,
   },
   dualCheckRow: {
     flexDirection: 'row',
     gap: 14,
-    minHeight: 44,
+    minHeight: 32,
     alignItems: 'center',
   },
   dualCheckItem: {
@@ -1072,29 +1161,32 @@ const styles = StyleSheet.create({
   },
   dualCheckLabel: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'NanumSquareRoundB',
     color: '#1A1A2E',
   },
   dualBodyBox: {
-    minHeight: 44,
+    minHeight: 32,
     justifyContent: 'center',
   },
   lookVibeText: {
     fontSize: 12,
+    fontFamily: 'NanumSquareRoundB',
     color: '#FF6B9D',
-    fontWeight: '600',
     lineHeight: 18,
   },
-  dualCta: {
-    borderRadius: 50,
-    height: 42,
+  imageButton: {
+    width: '100%',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: -26,
+    marginBottom: -28,
   },
-  dualCtaText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 13,
+  skinScanButtonImage: {
+    width: '220%',
+    height: 115,
+  },
+  lookFindButtonImage: {
+    width: '200%',
+    height: 110,
   },
 
   // Section 3 — horizontal activity scroll
@@ -1103,51 +1195,49 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     gap: 12,
   },
-  hCard: {
+  hCardLayout: {
     width: 160,
-    maxHeight: 150,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderLeftWidth: 3,
-    borderColor: 'rgba(220,220,230,0.5)',
+    maxHeight: 170,
+  },
+  hCardContent: {
     gap: 6,
-    shadowColor: '#B0B0B0',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.10,
-    shadowRadius: 10,
-    elevation: 2,
+  },
+  hCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   hCardTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'NanumSquareRoundB',
     color: '#1A1A2E',
   },
   hCardBody: {
     fontSize: 12,
+    fontFamily: 'NanumSquareRoundL',
     color: '#666',
     lineHeight: 17,
     minHeight: 34,
   },
   hCardScore: {
     fontSize: 22,
-    fontWeight: '800',
+    fontFamily: 'NanumSquareRoundEB',
     color: '#2D2D2D',
     marginTop: 2,
   },
   hCardScoreLatest: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: 'NanumSquareRoundB',
     color: '#5BA3D9',
   },
   hCardSub: {
     fontSize: 11,
+    fontFamily: 'NanumSquareRoundL',
     color: '#999',
   },
   hCardCta: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'NanumSquareRoundB',
     marginTop: 6,
   },
   miniBarRow: {
@@ -1176,68 +1266,27 @@ const styles = StyleSheet.create({
   },
 
   // Section 5 — tip of the day
-  tipCard: {
+  tipCardLayout: {
     marginHorizontal: 20,
     marginTop: 18,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(220,220,230,0.4)',
-    shadowColor: '#B0B0B0',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.10,
-    shadowRadius: 10,
-    elevation: 2,
+  },
+  tipCardContent: {
     gap: 6,
   },
   tipHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  tipEmoji: { fontSize: 16 },
   tipLabel: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'NanumSquareRoundB',
     letterSpacing: 0.3,
   },
   tipBody: {
     fontSize: 13,
+    fontFamily: 'NanumSquareRoundR',
     color: '#1A1A2E',
     lineHeight: 20,
-  },
-
-  // Section 4 — floating FABs
-  fabRow: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    flexDirection: 'row',
-    gap: 8,
-  },
-  fab: {
-    height: 52,
-    paddingHorizontal: 20,
-    borderRadius: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  fabLook: {
-    backgroundColor: '#FF6B9D',
-    shadowColor: '#FF6B9D',
-  },
-  fabSkin: {
-    backgroundColor: '#5BA3D9',
-    shadowColor: '#5BA3D9',
-  },
-  fabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
   },
 });

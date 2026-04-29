@@ -742,9 +742,9 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 80, gap: 12 },
 
   screenHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 0,
   },
   headerLogo: {
     width: 170,

@@ -168,6 +168,30 @@ export function FaceAnalysisResultScreen() {
                 <Ionicons name={m.icon} size={18} color={ACCENT} />
                 <Text style={styles.makeupLabel}>{m.label}</Text>
               </View>
+
+              {m.key === 'foundation' && (result.foundationShade || result.skinToneHex) && (
+                <View style={styles.shadeRow}>
+                  {result.skinToneHex && (
+                    <View
+                      style={[styles.shadeSwatch, { backgroundColor: result.skinToneHex }]}
+                    />
+                  )}
+                  <View style={{ flex: 1 }}>
+                    {result.foundationShade && (
+                      <Text style={styles.shadeLabel}>추천 호수</Text>
+                    )}
+                    <View style={styles.shadeValueRow}>
+                      {result.foundationShade && (
+                        <Text style={styles.shadeValue}>{result.foundationShade}</Text>
+                      )}
+                      {result.skinTone && (
+                        <Text style={styles.shadeSub}>· 피부톤 {result.skinTone}</Text>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              )}
+
               <Text style={styles.makeupText}>{m.text}</Text>
             </View>
           ))}
@@ -293,6 +317,28 @@ const styles = StyleSheet.create({
   makeupHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   makeupLabel: { fontSize: 14, fontWeight: '700', color: '#2D2D2D' },
   makeupText: { fontSize: 13, color: '#2D2D2D', lineHeight: 19 },
+
+  shadeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#FFE0EC',
+  },
+  shadeSwatch: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+  },
+  shadeLabel: { fontSize: 11, color: '#9A8F97', fontWeight: '600' },
+  shadeValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
+  shadeValue: { fontSize: 16, fontWeight: '800', color: ACCENT },
+  shadeSub: { fontSize: 12, color: '#8A8A9A' },
 
   saveBtn: {
     backgroundColor: ACCENT,

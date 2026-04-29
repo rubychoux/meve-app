@@ -24,35 +24,34 @@ type Nav = NativeStackNavigationProp<MainStackParamList>;
 const SKIP_KEY = 'meve_skip_face_analysis_guide';
 const ACCENT = '#FF6B9D';
 
-const ANALYSIS_PROMPT = `You are a Korean beauty expert and professional makeup artist specializing in Asian facial features and Korean beauty standards (한국 뷰티 기준).
-Analyze this facial photo with precision. Study the actual bone structure, proportions, and features visible in the photo.
-CRITICAL RULES:
-* Korean beauty standards and terminology apply
-* Analyze based on VISIBLE features only
-* Eye shape analysis must account for Asian eyelid types
-* Personal color: analyze skin undertone from the photo (warmth/coolness of skin shadows)
-* Be definitive — choose the BEST matching option
-* Personal color values MUST be exactly one of: 봄 웜톤, 여름 쿨톤, 가을 웜톤, 겨울 쿨톤
-Return ONLY valid JSON (no markdown code blocks, no other text):
+const ANALYSIS_PROMPT = `You are a Korean beauty consultant helping a user with personalized makeup recommendations in the meve app (Korean K-beauty standards, 한국 뷰티 기준).
+
+The user has consented to share their selfie for a makeup consultation. Your task is to suggest makeup that flatters them based on general facial aesthetics (face shape category, overall skin undertone, eye shape style, lip fullness, skin brightness). Do NOT attempt to identify the person. Treat this purely as an aesthetic styling consultation, the same way a makeup artist would classify a client to suggest products.
+
+Personal color MUST be one of: 봄 웜톤, 여름 쿨톤, 가을 웜톤, 겨울 쿨톤.
+
+Respond with a JSON object (and nothing else) matching this schema exactly:
 {
   "faceShape": "계란형 or 둥근형 or 각진형 or 하트형 or 긴형 or 역삼각형",
-  "faceShapeReason": "1 sentence in Korean explaining the bone structure clues",
+  "faceShapeReason": "1 sentence Korean description of the face-shape clues",
   "personalColor": "봄 웜톤 or 여름 쿨톤 or 가을 웜톤 or 겨울 쿨톤",
-  "personalColorReason": "1 sentence in Korean explaining the undertone clues",
+  "personalColorReason": "1 sentence Korean description of the undertone clues",
   "undertone": "쿨톤 or 웜톤 or 뉴트럴",
   "eyeShape": "쌍꺼풀 or 무쌍 or 인라인 쌍커풀 or 인아웃라인 쌍커풀 or 아웃라인 쌍커풀",
   "eyeTail": "올라간 눈꼬리 or 내려간 눈꼬리 or 수평",
   "lipFullness": "얇은 편 or 보통 or 도톰한 편",
   "skinTone": "매우밝음 or 밝음 or 중간 or 어두운편",
+  "skinToneHex": "#hex swatch approximating the user's skin tone",
+  "foundationShade": "Korean K-beauty foundation shade label, exactly one of: 13호, 17호, 19호, 21호 N, 21호 C, 21호 W, 23호 N, 23호 C, 23호 W, 25호. Pick the closest match to skinTone + undertone.",
   "makeupRecommendation": {
-    "foundation": "specific foundation advice 2-3 sentences Korean 해요체",
-    "eye": "eye makeup style for their eye shape 2-3 sentences Korean 해요체",
-    "lip": "lip color family for their personal color 2-3 sentences Korean 해요체",
-    "blush": "blush placement and color for their face shape 2-3 sentences Korean 해요체"
+    "foundation": "2-3 Korean 해요체 sentences on foundation finish and application tips (do NOT repeat the shade number here)",
+    "eye": "2-3 Korean 해요체 sentences on eye makeup style",
+    "lip": "2-3 Korean 해요체 sentences on lip color family",
+    "blush": "2-3 Korean 해요체 sentences on blush placement and color"
   },
   "colorPalette": ["#hex1", "#hex2", "#hex3", "#hex4", "#hex5"],
   "avoidColors": ["#hex1", "#hex2", "#hex3"],
-  "summary": "4-5 lines warm encouraging specific summary in Korean 해요체, referencing specific features observed"
+  "summary": "4-5 line warm encouraging Korean 해요체 summary"
 }`;
 
 const CHECKS = [
@@ -72,6 +71,7 @@ async function runFaceAnalysis(base64: string): Promise<FaceAnalysisResult> {
     body: JSON.stringify({
       model: 'gpt-4o',
       max_tokens: 1500,
+      response_format: { type: 'json_object' },
       messages: [
         {
           role: 'user',
@@ -90,8 +90,16 @@ async function runFaceAnalysis(base64: string): Promise<FaceAnalysisResult> {
   if (!response.ok) {
     throw new Error(data.error?.message ?? `OpenAI ${response.status}`);
   }
-  const content = data.choices[0].message.content;
-  return JSON.parse(cleanJson(content)) as FaceAnalysisResult;
+  const content: string = data.choices[0].message.content ?? '';
+  try {
+    return JSON.parse(cleanJson(content)) as FaceAnalysisResult;
+  } catch {
+    // Model returned prose (usually a safety-refusal). Surface a friendly message.
+    console.warn('[FaceAnalysis] non-JSON response:', content.slice(0, 200));
+    throw new Error(
+      '얼굴을 분석하지 못했어요. 정면을 보고 밝은 곳에서 다시 찍어주세요.'
+    );
+  }
 }
 
 export function FaceAnalysisScreen() {
