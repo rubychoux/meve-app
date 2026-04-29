@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Linking,
   Share,
   Alert,
 } from 'react-native';
@@ -16,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../types';
+import { openOliveYoungSearch } from '../../services/affiliate';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'InspoLookResult'>;
 type Rt = RouteProp<MainStackParamList, 'InspoLookResult'>;
@@ -23,10 +23,6 @@ type Rt = RouteProp<MainStackParamList, 'InspoLookResult'>;
 const ACCENT = '#FF6B9D';
 const BLUE = '#6DA5C4';
 const SAVED_KEY = 'meve_inspo_looks';
-
-function oliveYoungUrl(q: string) {
-  return `https://www.oliveyoung.co.kr/store/search/getSearchMain.do?query=${encodeURIComponent(q)}`;
-}
 
 export function InspoLookResultScreen() {
   const navigation = useNavigation<Nav>();
@@ -144,7 +140,14 @@ export function InspoLookResultScreen() {
               <View style={styles.hintPill}>
                 <Text style={styles.hintText}>{s.productHint}</Text>
               </View>
-              <TouchableOpacity onPress={() => Linking.openURL(oliveYoungUrl(s.productHint))}>
+              <TouchableOpacity
+                onPress={() =>
+                  openOliveYoungSearch(s.productHint, {
+                    source: 'inspo_look_result_step',
+                    item_name: s.productHint,
+                  })
+                }
+              >
                 <Text style={styles.oliveLink}>올리브영에서 보기 →</Text>
               </TouchableOpacity>
             </View>
