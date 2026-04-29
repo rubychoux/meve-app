@@ -17,6 +17,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
 import { AIScanStackParamList } from '../../types';
+import { openOliveYoungSearch } from '../../services/affiliate';
 
 type Nav = NativeStackNavigationProp<AIScanStackParamList, 'IngredientResult'>;
 type Route = RouteProp<AIScanStackParamList, 'IngredientResult'>;
@@ -272,9 +273,7 @@ Return ONLY valid JSON no markdown:
             <TouchableOpacity
               style={styles.oliveyoungBtn}
               onPress={() =>
-                Linking.openURL(
-                  `https://www.oliveyoung.co.kr/store/search/getSearchMain.do?query=${encodeURIComponent(result.productName!)}`
-                )
+                openOliveYoungSearch(result.productName!, { source: 'ingredient_result', item_name: result.productName! })
               }
             >
               <Text style={styles.oliveyoungText}>올리브영에서 보기 →</Text>

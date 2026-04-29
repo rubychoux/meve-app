@@ -4,6 +4,7 @@ import { MainStackParamList } from '../types';
 import { MainNavigator } from './MainNavigator';
 import { EventStackNavigator } from './EventStackNavigator';
 import { ScanResultScreen } from '../screens/scanner/ScanResultScreen';
+import { PaywallScreen } from '../screens/paywall/PaywallScreen';
 import { ProfileEditScreen } from '../screens/profile/ProfileEditScreen';
 import { NotificationSettingsScreen } from '../screens/profile/NotificationSettingsScreen';
 import { PrivacyPolicyScreen } from '../screens/profile/PrivacyPolicyScreen';
@@ -33,6 +34,11 @@ export function MainStackNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={MainNavigator} />
       <Stack.Screen name="ScanResult" component={ScanResultScreen} />
+      <Stack.Screen
+        name="Paywall"
+        component={PaywallScreen}
+        options={{ presentation: 'modal' }}
+      />
       <Stack.Screen
         name="EventFlow"
         component={EventStackNavigator}

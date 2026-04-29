@@ -41,6 +41,7 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CompositeNavigationProp } from '@react-navigation/native';
 import { MainTabParamList, MainStackParamList } from '../../types';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from '../../services/supabase';
 import { useAuthStore } from '../../store';
 import { EVENT_CONFIG, EventKey } from '../../constants/events';
@@ -154,7 +155,7 @@ export function HomeScreen() {
     loadCalendarExpanded();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (_event: AuthChangeEvent, session: Session | null) => {
         if (session?.user) fetchDisplayName(session.user.id);
       }
     );

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { UserProfile, SkinType, SkinConcern, ExperienceLevel, SkinGoal, SkinMode } from '../types';
+export { useSubscriptionStore } from './subscription';
 
 // ─── Auth Store ───────────────────────────────────────────────────────────────
 

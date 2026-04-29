@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList, SkinZone } from '../../types';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
+import { openOliveYoungSearch } from '../../services/affiliate';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'ScanResult'>;
 type Route = RouteProp<MainStackParamList, 'ScanResult'>;
@@ -198,9 +198,7 @@ export function ScanResultScreen() {
                   </View>
                   <TouchableOpacity
                     onPress={() =>
-                      Linking.openURL(
-                        `https://www.oliveyoung.co.kr/store/search/getSearchMain.do?query=${encodeURIComponent(name)}`
-                      )
+                      openOliveYoungSearch(name, { source: 'scan_result_ingredient', item_name: name })
                     }
                     style={styles.oliveyoungBtn}
                   >
@@ -248,7 +246,7 @@ export function ScanResultScreen() {
           </View>
         )}
 
-        {/* 홍조 / 자극 (legacy) */}
+        {/* 홍조 / 자극 */}
         {result.redness?.detected && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>홍조 / 자극</Text>
@@ -264,6 +262,46 @@ export function ScanResultScreen() {
                   </View>
                 ))}
               </View>
+            </View>
+          </View>
+        )}
+
+        {/* 주요 소견 */}
+        {(result.keyFindings?.length ?? 0) > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>주요 소견</Text>
+            <View style={styles.listCard}>
+              {(result.keyFindings ?? []).map((finding, i) => (
+                <View key={i} style={styles.listRow}>
+                  <View style={styles.bullet} />
+                  <Text style={styles.listText}>{finding}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* AI 추천 */}
+        {(result.recommendations?.length ?? 0) > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>AI 추천</Text>
+            <View style={styles.listCard}>
+              {(result.recommendations ?? []).map((rec, i) => (
+                <View key={i} style={styles.recItem}>
+                  <View style={styles.listRow}>
+                    <Text style={styles.recIndex}>{i + 1}</Text>
+                    <Text style={styles.listText}>{rec}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() =>
+                      openOliveYoungSearch(rec, { source: 'scan_recommendation', item_name: rec })
+                    }
+                    style={styles.oliveyoungBtn}
+                  >
+                    <Text style={styles.oliveyoungText}>올리브영에서 보기 →</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
           </View>
         )}

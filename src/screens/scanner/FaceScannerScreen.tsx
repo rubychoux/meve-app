@@ -18,6 +18,8 @@ import Svg, { Path, Ellipse } from 'react-native-svg';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
 import { MainStackParamList, ScanAnalysisResult } from '../../types';
+import { getMonthlyCount, isPremiumNow } from '../../services/premium';
+import { PremiumUpsellModal } from '../../components/PremiumUpsellModal';
 import { cleanJson } from '../../utils/openai';
 import {
   SkinScanGuideModal,
@@ -121,6 +123,7 @@ export function FaceScannerScreen() {
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const cameraRef = useRef<CameraView>(null);
+  const [upsellOpen, setUpsellOpen] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(SKIP_GUIDE_KEY).then((val) => {
@@ -144,6 +147,19 @@ export function FaceScannerScreen() {
 
   const handleCapture = async () => {
     if (step !== 'idle' || !cameraRef.current) return;
+
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const user = userRes.user;
+      if (user && !isPremiumNow()) {
+        const count = await getMonthlyCount('skin_scans', user.id);
+        if (count >= 3) {
+          setUpsellOpen(true);
+          return;
+        }
+      }
+    } catch {}
+
     setStep('analyzing');
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7, base64: true });
@@ -212,6 +228,15 @@ export function FaceScannerScreen() {
   // ── 카메라 뷰 ─────────────────────────────────────────────────────────────
   return (
     <View style={styles.cameraContainer} onLayout={handleContainerLayout}>
+      <PremiumUpsellModal
+        visible={upsellOpen}
+        onClose={() => setUpsellOpen(false)}
+        onUpgrade={() => {
+          setUpsellOpen(false);
+          navigation.navigate('Paywall', { source: 'face_scan_limit' });
+        }}
+        subtitle="무료 플랜은 AI 피부 스캔을 월 3회까지 이용할 수 있어요."
+      />
       <CameraView
         ref={cameraRef}
         style={StyleSheet.absoluteFill}

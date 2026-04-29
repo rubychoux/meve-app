@@ -162,6 +162,7 @@ export type MainStackParamList = {
   MainTabs: undefined;
   ScanResult: { result: ScanAnalysisResult; isSaved?: boolean };
   EventFlow: undefined;
+  Paywall: { source?: string } | undefined;
   ProfileEdit: undefined;
   NotificationSettings: undefined;
   PrivacyPolicy: undefined;
@@ -183,6 +184,11 @@ export type MainStackParamList = {
   PostDetail: { postId: string };
   RoutineCoachChat: undefined;
   Notifications: undefined;
+};
+
+export type CommunityStackParamList = {
+  CommunityFeed: undefined;
+  CreatePost: undefined;
 };
 
 export type NotificationType = 'comment' | 'reply' | 'like';

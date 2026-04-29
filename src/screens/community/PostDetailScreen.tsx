@@ -125,7 +125,7 @@ export function PostDetailScreen() {
       }));
       setComments(mergedComments);
       setLikeCount((likeRows ?? []).length);
-      if (user && (likeRows ?? []).some((r) => r.user_id === user.id)) {
+      if (user && (likeRows ?? []).some((r: { user_id: string }) => r.user_id === user.id)) {
         setIsLiked(true);
       } else {
         setIsLiked(false);

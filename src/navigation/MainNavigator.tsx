@@ -8,7 +8,7 @@ import { Typography } from '../constants/theme';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { AIScanNavigator } from './AIScanNavigator';
 import { LookScreen } from '../screens/look/LookScreen';
-import { CommunityScreen } from '../screens/community/CommunityScreen';
+import { CommunityStackNavigator } from './CommunityStackNavigator';
 import { MyPageScreen } from '../screens/mypage/MyPageScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -107,7 +107,7 @@ export function MainNavigator() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Skin" component={AIScanNavigator} />
       <Tab.Screen name="Look" component={LookScreen} />
-      <Tab.Screen name="Community" component={CommunityScreen} />
+      <Tab.Screen name="Community" component={CommunityStackNavigator} />
       <Tab.Screen name="MyPage" component={MyPageScreen} />
     </Tab.Navigator>
   );

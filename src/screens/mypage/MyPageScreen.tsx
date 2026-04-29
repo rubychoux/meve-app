@@ -16,6 +16,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Linking } from 'react-native';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
 import { useAuthStore } from '../../store';
@@ -224,7 +225,7 @@ export function MyPageScreen() {
             >
               <TouchableOpacity
                 onPress={() =>
-                  Alert.alert('준비 중이에요', '곧 출시될 예정이에요! 조금만 기다려주세요 :)')
+                  navigation.navigate('Paywall', { source: 'mypage_card' })
                 }
                 style={styles.ctaBtn}
                 activeOpacity={0.85}
@@ -235,6 +236,43 @@ export function MyPageScreen() {
             </LinearGradient>
           </View>
         )}
+
+        {/* ── 2.5 DERMATOLOGY REFERRAL ───────────────────────────────────── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>피부과 상담하기</Text>
+          <View style={styles.referralCard}>
+            <Text style={styles.referralDesc}>
+              제휴 피부과에서 상담 예약을 진행할 수 있어요.
+            </Text>
+
+            {[
+              { name: '제휴 피부과 A', phone: '0212345678', url: 'https://example.com/clinic-a' },
+              { name: '제휴 피부과 B', phone: '0211122233', url: 'https://example.com/clinic-b' },
+              { name: '제휴 피부과 C', phone: '0255556666', url: 'https://example.com/clinic-c' },
+            ].map((c) => (
+              <View key={c.name} style={styles.clinicRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.clinicName}>{c.name}</Text>
+                  <Text style={styles.clinicSub}>예약 링크 또는 전화 연결</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.clinicBtn}
+                  onPress={() => Linking.openURL(c.url)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.clinicBtnText}>예약</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.clinicBtn, styles.clinicBtnOutline]}
+                  onPress={() => Linking.openURL(`tel:${c.phone}`)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.clinicBtnText, styles.clinicBtnTextOutline]}>전화</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        </View>
 
         {/* ── 3. SCAN HISTORY ────────────────────────────────────────────── */}
         <View style={styles.section}>
@@ -461,6 +499,38 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: { ...Typography.h3 },
+  referralCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  referralDesc: { ...Typography.bodySecondary, lineHeight: 20 },
+  clinicRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  clinicName: { ...Typography.body, fontWeight: '700', color: Colors.textPrimary },
+  clinicSub: { ...Typography.caption, color: Colors.textSecondary, marginTop: 2 },
+  clinicBtn: {
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  clinicBtnOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
+  },
+  clinicBtnText: { ...Typography.caption, color: '#fff', fontWeight: '800' },
+  clinicBtnTextOutline: { color: Colors.accent },
   emptyCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
