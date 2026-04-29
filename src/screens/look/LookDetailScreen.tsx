@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Linking,
   Share,
   Alert,
 } from 'react-native';
@@ -15,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList, LookRecommendation, LookProduct } from '../../types';
+import { openOliveYoungSearch } from '../../services/affiliate';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'LookDetail'>;
 type Rt = RouteProp<MainStackParamList, 'LookDetail'>;
@@ -53,10 +53,6 @@ const CATEGORY_TO_STEP: Record<string, number> = {
   세팅: 5,
   마무리: 5,
 };
-
-function oliveYoungUrl(name: string) {
-  return `https://www.oliveyoung.co.kr/store/search/getSearchMain.do?query=${encodeURIComponent(name)}`;
-}
 
 function bucketByStep(products: LookProduct[]): Record<number, LookProduct[]> {
   const buckets: Record<number, LookProduct[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
@@ -159,7 +155,14 @@ export function LookDetailScreen() {
                     <Text style={styles.productName}>{p.name}</Text>
                   </View>
                   <Text style={styles.productTip}>{p.tip}</Text>
-                  <TouchableOpacity onPress={() => Linking.openURL(oliveYoungUrl(p.name))}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      openOliveYoungSearch(p.name, {
+                        source: 'look_detail_product',
+                        item_name: p.name,
+                      })
+                    }
+                  >
                     <Text style={styles.oliveLink}>올리브영에서 보기 →</Text>
                   </TouchableOpacity>
                 </View>
