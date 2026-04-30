@@ -419,7 +419,6 @@ export interface ScanAnalysisResult {
 
 export type AIScanStackParamList = {
   SkinHome: undefined;
-  DailyLog: undefined;
   FaceScanner: undefined;
   IngredientScanner: undefined;
   IngredientResult: { imageBase64?: string; result?: any };

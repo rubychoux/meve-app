@@ -174,9 +174,12 @@ export async function handleFirstScanCompleted(): Promise<void> {
     const done = await AsyncStorage.getItem(FIRST_SCAN_NOTIF_HANDLED_KEY);
     if (done === 'true') return;
 
-    await AsyncStorage.setItem(FIRST_SCAN_NOTIF_HANDLED_KEY, 'true');
-
     const prefs = await loadPrefs();
+
+    if (!prefs.master) return;
+
+    // Respect explicit opt-out of daily routine reminders before first scan.
+    if (prefs.dailyRoutine === false) return;
 
     const existing = await Notifications.getPermissionsAsync();
     let granted = existing.granted;
@@ -187,11 +190,6 @@ export async function handleFirstScanCompleted(): Promise<void> {
 
     if (!granted) return;
 
-    if (!prefs.master) return;
-
-    // Respect explicit opt-out of daily routine reminders before first scan.
-    if (prefs.dailyRoutine === false) return;
-
     const next: NotificationPrefs = {
       ...prefs,
       dailyRoutine: true,
@@ -201,6 +199,9 @@ export async function handleFirstScanCompleted(): Promise<void> {
 
     await savePrefs(next);
     await applyRoutineSchedule(next);
+
+    // Mark handled only after we successfully passed checks and applied a schedule.
+    await AsyncStorage.setItem(FIRST_SCAN_NOTIF_HANDLED_KEY, 'true');
   } catch (e) {
     console.warn('[routineNotifications] handleFirstScanCompleted:', e);
   }
