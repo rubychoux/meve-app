@@ -26,6 +26,7 @@ import {
   SkinScanGuideModal,
   SKIP_GUIDE_KEY,
 } from '../../components/SkinScanGuideModal';
+import { track } from '../../services/analytics';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
@@ -159,6 +160,7 @@ export function FaceScannerScreen() {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7, base64: true });
       if (!photo.base64) throw new Error('base64 없음');
       const result = await runAnalysis(photo.base64);
+      track('scan_completed', { scan_type: 'face' });
       await handleFirstScanCompleted();
       navigation.navigate('ScanResult', { result });
     } catch (e: any) {

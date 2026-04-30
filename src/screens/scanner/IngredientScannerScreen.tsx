@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { AIScanStackParamList } from '../../types';
+import { track } from '../../services/analytics';
 
 type Nav = NativeStackNavigationProp<AIScanStackParamList, 'IngredientScanner'>;
 
@@ -50,6 +51,7 @@ export function IngredientScannerScreen() {
         base64: true,
       });
       if (!photo.base64) throw new Error('base64 없음');
+      track('scan_completed', { scan_type: 'ingredient', method: 'camera' });
       navigation.navigate('IngredientResult', { imageBase64: photo.base64 });
     } catch {
       setIsCapturing(false);
@@ -104,6 +106,7 @@ All text in Korean.`,
       if (!jsonMatch) throw new Error('JSON 파싱 실패');
 
       const result = JSON.parse(jsonMatch[0]);
+      track('scan_completed', { scan_type: 'ingredient', method: 'text' });
       navigation.navigate('IngredientResult', { result });
     } catch (e: any) {
       Alert.alert('분석 실패', e?.message ?? '다시 시도해 주세요.');

@@ -12,6 +12,7 @@ import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainStackNavigator } from './MainStackNavigator';
 import { Colors } from '../constants/theme';
 import { hydratePremiumFromLocalStorage, refreshPremiumFromSupabase } from '../services/premium';
+import { identifyUser, trackOnboardingCompletedOnce } from '../services/analytics';
 
 const Stack =
   Platform.OS === 'web'
@@ -28,6 +29,8 @@ export function RootNavigator() {
         setSession(session ? { accessToken: session.access_token } : null);
         setLoading(false);
         if (session) {
+          identifyUser(session.user?.id);
+          void trackOnboardingCompletedOnce({ auth_provider: session.user?.app_metadata?.provider });
           refreshPremiumFromSupabase();
         }
       }
@@ -38,6 +41,8 @@ export function RootNavigator() {
       setSession(session ? { accessToken: session.access_token } : null);
       setLoading(false);
       if (session) {
+        identifyUser(session.user?.id);
+        void trackOnboardingCompletedOnce({ auth_provider: session.user?.app_metadata?.provider });
         refreshPremiumFromSupabase();
       }
     });
@@ -53,6 +58,8 @@ export function RootNavigator() {
         if (session) {
           useAuthStore.getState().setSession({ accessToken: session.access_token });
           useAuthStore.getState().setUser(session.user as any);
+          identifyUser(session.user?.id);
+          void trackOnboardingCompletedOnce({ auth_provider: session.user?.app_metadata?.provider });
           refreshPremiumFromSupabase();
         }
       }

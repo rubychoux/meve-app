@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { PrimaryButton, GhostButton } from '../../components/ui';
 import { setLocalPremium } from '../../services/premium';
+import { track } from '../../services/analytics';
 
 type PlanKey = 'monthly' | 'yearly';
 
@@ -21,6 +22,7 @@ export function PaywallScreen() {
   const yearlyPrice = useMemo(() => Math.round(PRICE_MONTHLY * 12 * (1 - YEARLY_DISCOUNT)), []);
 
   const startPurchase = async () => {
+    track('payment_attempted', { plan: selected, source: 'paywall_cta' });
     Alert.alert(
       '결제 연동 필요',
       'RevenueCat(권장) 또는 네이티브 인앱결제 연결 후 실제 구매가 가능해요.\n\n지금은 데모로 프리미엄을 활성화할까요?',

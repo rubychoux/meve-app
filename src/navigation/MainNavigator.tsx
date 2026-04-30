@@ -9,6 +9,7 @@ import { AIScanNavigator } from './AIScanNavigator';
 import { LookScreen } from '../screens/look/LookScreen';
 import { CommunityStackNavigator } from './CommunityStackNavigator';
 import { MyPageScreen } from '../screens/mypage/MyPageScreen';
+import { track } from '../services/analytics';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -101,7 +102,13 @@ export function MainNavigator() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Skin" component={AIScanNavigator} />
       <Tab.Screen name="Look" component={LookScreen} />
-      <Tab.Screen name="Community" component={CommunityStackNavigator} />
+      <Tab.Screen
+        name="Community"
+        component={CommunityStackNavigator}
+        listeners={{
+          tabPress: () => track('eve_tab_entered'),
+        }}
+      />
       <Tab.Screen name="MyPage" component={MyPageScreen} />
     </Tab.Navigator>
   );

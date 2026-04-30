@@ -17,6 +17,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { MainStackParamList, FaceAnalysisResult } from '../../types';
+import { track } from '../../services/analytics';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
@@ -123,6 +124,7 @@ export function LookScreen() {
       if (next) {
         const label = AESTHETICS.find((a) => a.key === next)?.label;
         if (label) await AsyncStorage.setItem('meve_vibe', label);
+        track('vibe_selected', { vibe: label });
       } else {
         await AsyncStorage.removeItem('meve_vibe');
       }
