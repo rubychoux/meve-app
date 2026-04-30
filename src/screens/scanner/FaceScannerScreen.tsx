@@ -18,6 +18,7 @@ import Svg, { Path, Ellipse } from 'react-native-svg';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
 import { MainStackParamList, ScanAnalysisResult } from '../../types';
+import { handleFirstScanCompleted } from '../../services/routineNotifications';
 import { getMonthlyCount, isPremiumNow } from '../../services/premium';
 import { PremiumUpsellModal } from '../../components/PremiumUpsellModal';
 import { cleanJson } from '../../utils/openai';
@@ -66,7 +67,6 @@ const runAnalysis = async (base64String: string): Promise<ScanAnalysisResult> =>
     body: JSON.stringify({
       model: 'gpt-4o',
       max_tokens: 1000,
-      response_format: { type: 'json_object' },
       messages: [{
         role: 'user',
         content: [
@@ -90,15 +90,9 @@ const runAnalysis = async (base64String: string): Promise<ScanAnalysisResult> =>
     throw new Error(openaiData.error?.message ?? `OpenAI ${openaiResponse.status}`);
   }
 
-  const content: string = openaiData.choices[0].message.content ?? '';
+  const content = openaiData.choices[0].message.content;
   console.log('[OpenAI] raw content:', content);
-  let result: ScanAnalysisResult;
-  try {
-    result = JSON.parse(cleanJson(content));
-  } catch {
-    console.warn('[FaceScanner] non-JSON response:', content.slice(0, 200));
-    throw new Error('피부를 분석하지 못했어요. 정면을 보고 밝은 곳에서 다시 찍어주세요.');
-  }
+  const result: ScanAnalysisResult = JSON.parse(cleanJson(content));
 
   // Save to skin_scans (best-effort — don't block navigation on failure)
   try {
@@ -165,6 +159,7 @@ export function FaceScannerScreen() {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7, base64: true });
       if (!photo.base64) throw new Error('base64 없음');
       const result = await runAnalysis(photo.base64);
+      await handleFirstScanCompleted();
       navigation.navigate('ScanResult', { result });
     } catch (e: any) {
       console.error('[handleCapture] error:', e);
@@ -197,7 +192,9 @@ export function FaceScannerScreen() {
       },
       summary: '복합성 피부로 T존 관리가 필요한 상태예요. 전반적인 피부 톤은 균일하니까,\n피지 조절 성분을 중심으로 루틴을 짜면 금세 맑아질 거예요. 함께 관리해봐요 💕',
     };
-    navigation.navigate('ScanResult', { result: mockResult });
+    void handleFirstScanCompleted().finally(() => {
+      navigation.navigate('ScanResult', { result: mockResult });
+    });
   };
 
   // ── 권한 미승인 ───────────────────────────────────────────────────────────

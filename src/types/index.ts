@@ -82,7 +82,12 @@ export interface FaceScanResult {
 
 // ─── Logs ────────────────────────────────────────────────────────────────────
 
-export type DietTag = '고당' | '유제품' | '글루텐' | '음주' | '건강식';
+export type LifestyleDietTag =
+  | '자극적인 음식'
+  | '기름진 음식'
+  | '단 음식'
+  | '균형잡힌 식사'
+  | '채소 충분';
 export type CyclePhase = '생리기' | '배란기' | '황체기';
 export type ProcedureType = '보톡스' | '레이저' | '필링' | '물광주사' | '기타';
 
@@ -106,9 +111,10 @@ export interface DailyLog {
   userId: string;
   date: string;
   sleepHours?: number;
+  waterIntakeCups?: number;
   stressLevel?: 1 | 2 | 3 | 4 | 5;
-  dietNotes?: string;
-  dietTags?: DietTag[];
+  dietTags?: LifestyleDietTag[];
+  notes?: string;
   cycleDay?: number;
   cyclePhase?: CyclePhase;
   supplements?: Supplement[];
@@ -247,13 +253,6 @@ export interface PostComment {
   parent_id: string | null;
   created_at: string;
   user_profiles?: { display_name: string | null; avatar_url: string | null } | null;
-}
-
-export interface PostLike {
-  id: string;
-  post_id: string;
-  user_id: string;
-  created_at: string;
 }
 
 export interface GlamSync {

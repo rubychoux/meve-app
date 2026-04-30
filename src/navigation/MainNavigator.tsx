@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Image, StyleSheet, ImageSourcePropType } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MainTabParamList } from '../types';
 import { Typography } from '../constants/theme';
@@ -52,12 +51,7 @@ const labels: Record<string, string> = {
 function TabBarBackground() {
   return (
     <View style={StyleSheet.absoluteFill}>
-      <BlurView
-        intensity={40}
-        tint="light"
-        experimentalBlurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
+      <View style={[StyleSheet.absoluteFill, tabStyles.blurFallback]} />
       <LinearGradient
         colors={['rgba(249,196,216,0.18)', 'rgba(184,212,240,0.10)']}
         start={{ x: 0, y: 0 }}
@@ -121,6 +115,9 @@ const tabStyles = StyleSheet.create({
     right: 0,
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  blurFallback: {
+    backgroundColor: 'rgba(255,255,255,0.72)',
   },
   icon: {
     width: 96,

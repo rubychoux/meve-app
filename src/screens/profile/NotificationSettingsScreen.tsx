@@ -15,34 +15,18 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Notifications from 'expo-notifications';
+import {
+  DEFAULT_NOTIFICATION_PREFS,
+  NOTIFICATION_STORAGE_KEY,
+  NotificationPrefs,
+  ReminderInterval,
+  applyRoutineSchedule,
+} from '../../services/routineNotifications';
 import { MainStackParamList } from '../../types';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'NotificationSettings'>;
 
-const STORAGE_KEY = 'meve_notification_settings';
 const ACCENT = '#FF6B9D';
-
-type ReminderInterval = 3 | 7 | 14;
-
-interface Settings {
-  master: boolean;
-  dailyRoutine: boolean;
-  dailyRoutineTime: string; // "HH:mm"
-  scanReminder: boolean;
-  scanReminderInterval: ReminderInterval;
-  community: boolean;
-  marketing: boolean;
-}
-
-const DEFAULT_SETTINGS: Settings = {
-  master: true,
-  dailyRoutine: false,
-  dailyRoutineTime: '21:00',
-  scanReminder: false,
-  scanReminderInterval: 7,
-  community: true,
-  marketing: false,
-};
 
 function parseTime(s: string): Date {
   const [h, m] = s.split(':').map((n) => parseInt(n, 10));
@@ -62,60 +46,43 @@ function displayTime(s: string): string {
   return `${period} ${hh}:${String(m).padStart(2, '0')}`;
 }
 
-async function scheduleDailyRoutine(timeStr: string) {
-  await Notifications.cancelAllScheduledNotificationsAsync();
-  const [hour, minute] = timeStr.split(':').map((n) => parseInt(n, 10));
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: '오늘의 루틴 시간이에요 ✨',
-      body: 'meve와 함께 피부를 가꿔볼까요?',
-    },
-    trigger: {
-      hour: hour || 21,
-      minute: minute || 0,
-      repeats: true,
-    } as Notifications.CalendarTriggerInput,
-  });
-}
-
-async function cancelAll() {
-  await Notifications.cancelAllScheduledNotificationsAsync();
-}
-
 export function NotificationSettingsScreen() {
   const navigation = useNavigation<Nav>();
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   const [loaded, setLoaded] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
+        const raw = await AsyncStorage.getItem(NOTIFICATION_STORAGE_KEY);
+        if (raw) setSettings({ ...DEFAULT_NOTIFICATION_PREFS, ...JSON.parse(raw) });
       } finally {
         setLoaded(true);
       }
     })();
   }, []);
 
-  const persist = async (next: Settings) => {
+  useEffect(() => {
+    if (!loaded) return;
+    void applyRoutineSchedule(settings);
+  }, [loaded]);
+
+  const persist = async (next: NotificationPrefs) => {
     setSettings(next);
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      await AsyncStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(next));
     } catch {}
   };
 
-  const update = async (patch: Partial<Settings>) => {
-    const next = { ...settings, ...patch };
+  const update = async (patch: Partial<NotificationPrefs>) => {
+    const next: NotificationPrefs = { ...settings, ...patch };
+    if (patch.dailyRoutineTime !== undefined) {
+      next.dailyRoutineUsesFixedKST = false;
+    }
     await persist(next);
 
-    // Re-evaluate scheduled notifications based on the new state
-    if (!next.master || !next.dailyRoutine) {
-      await cancelAll();
-    } else if (next.dailyRoutine) {
-      await scheduleDailyRoutine(next.dailyRoutineTime);
-    }
+    await applyRoutineSchedule(next);
   };
 
   const toggleMaster = (v: boolean) => update({ master: v });
