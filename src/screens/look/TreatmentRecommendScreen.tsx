@@ -4,7 +4,7 @@
 // Step 3: AI returns recommendations focused ONLY on what the user chose.
 // Philosophy: meve doesn't push beauty standards. Address only what users
 // ask about, frame as empowerment, not "fixing flaws".
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import {
 } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../types';
+import { supabase } from '../../services/supabase';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
 import {
   cleanJson,
@@ -99,6 +100,74 @@ export function TreatmentRecommendScreen() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TreatmentResult | null>(null);
 
+  // MEVE — pull actual scan + face analysis from Supabase for richer prompts.
+  // skin_scans stores the result as a JSON blob; face_analysis has flat columns.
+  const [latestScanDetail, setLatestScanDetail] = useState<{
+    overall_score: number | null;
+    zone_scores: unknown;
+    concerns: unknown;
+    recommendations: unknown;
+    created_at: string | null;
+  } | null>(null);
+  const [latestFaceAnalysis, setLatestFaceAnalysis] = useState<{
+    personal_color: string | null;
+    face_shape: string | null;
+    eye_shape: string | null;
+    skin_tone: string | null;
+    user_confirmed: boolean | null;
+    created_at: string | null;
+  } | null>(null);
+  const [scanFetching, setScanFetching] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchDetails = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Latest skin scan — extract from scan_result JSON
+        const { data: scanRow } = await supabase
+          .from('skin_scans')
+          .select('scan_result, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled && scanRow?.scan_result) {
+          const r = scanRow.scan_result as Record<string, unknown>;
+          setLatestScanDetail({
+            overall_score: typeof r.overallScore === 'number' ? r.overallScore : null,
+            zone_scores: r.zones ?? null,
+            concerns: r.concerns ?? null,
+            recommendations: r.recommendations ?? r.routineAdvice ?? null,
+            created_at: scanRow.created_at,
+          });
+        }
+
+        // Latest face analysis
+        const { data: faceRow } = await supabase
+          .from('face_analysis')
+          .select('personal_color, face_shape, eye_shape, skin_tone, user_confirmed, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled && faceRow) {
+          setLatestFaceAnalysis(faceRow);
+        }
+      } catch {
+        // Silent — fall back to base profile context.
+      } finally {
+        if (!cancelled) setScanFetching(false);
+      }
+    };
+    fetchDetails();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const daysLeft = useMemo(() => {
     if (!profile.eventDate) return null;
     return Math.max(
@@ -146,6 +215,28 @@ export function TreatmentRecommendScreen() {
     const profileLine = (line: string, value: string | number | null | undefined) =>
       `- ${line}: ${value ?? '미설정'}`;
 
+    // MEVE — detailed scan + face context for richer personalization
+    const scanContext = latestScanDetail
+      ? `
+Detailed skin scan results:
+- Overall score: ${latestScanDetail.overall_score ?? '미상'}점
+- Zone analysis: ${JSON.stringify(latestScanDetail.zone_scores ?? {})}
+- Detected concerns: ${JSON.stringify(latestScanDetail.concerns ?? [])}
+- AI recommendations from scan: ${JSON.stringify(latestScanDetail.recommendations ?? [])}
+`
+      : '';
+
+    const faceContext = latestFaceAnalysis
+      ? `
+Face analysis results:
+- Personal color: ${latestFaceAnalysis.personal_color ?? '미분석'}
+- Face shape: ${latestFaceAnalysis.face_shape ?? '미분석'}
+- Eye type: ${latestFaceAnalysis.eye_shape ?? '미분석'}
+- Skin tone: ${latestFaceAnalysis.skin_tone ?? '미분석'}
+- User confirmed analysis: ${latestFaceAnalysis.user_confirmed === true ? 'yes' : latestFaceAnalysis.user_confirmed === false ? 'no' : 'unknown'}
+`
+      : '';
+
     if (mode === 'concern') {
       const concerns = selectedConcerns
         .map((id) => {
@@ -165,11 +256,18 @@ CRITICAL RULES:
 - Frame everything as "원하는 것을 이루는 방법" not "부족한 점을 고치는 방법"
 - Tone: supportive, empowering, never critical
 
+PERSONALIZATION RULES:
+- Reference the user's ACTUAL scan data when making recommendations
+- If zone_scores show specific weak areas, mention them
+- Connect the user's selected concerns to their actual scan findings
+- Use phrases like "스캔 결과에서 {concern}이 발견됐어요" when relevant
+- Make it feel like you analyzed THEIR specific skin, not generic advice
+
 User's skin data (for context only, don't analyze unlisted areas):
 ${profileLine('Skin type', profile.skinType)}
 ${profileLine('Skin score', profile.lastSkinScore != null ? `${profile.lastSkinScore}점` : '미스캔')}
 ${profileLine('Event', `${profile.eventType ?? '없음'}${daysLeft != null ? ` D-${daysLeft}` : ''}`)}
-
+${scanContext}${faceContext}
 User's selected concerns: ${concerns}
 
 Recommend 3 treatments focused ONLY on these concerns.
@@ -202,12 +300,17 @@ CRITICAL RULES:
 - Tone: warm, empowering, "당신은 이미 아름다워요" energy
 - Focus on glow, health, confidence — not fixing "flaws"
 
+PERSONALIZATION RULES:
+- Use their actual scan score (${latestScanDetail?.overall_score ?? '미스캔'}점) as context
+- Reference specific zones that scored low if available
+- Connect recommendations to their real data
+
 User profile:
 ${profileLine('Skin type', profile.skinType)}
 ${profileLine('Skin score', profile.lastSkinScore != null ? `${profile.lastSkinScore}점` : '미스캔')}
 ${profileLine('Main concerns', profile.skinConcerns?.length ? profile.skinConcerns.join(', ') : '없음')}
 ${profileLine('Event', `${profile.eventType ?? '없음'}${daysLeft != null ? ` D-${daysLeft}` : ''}`)}
-
+${scanContext}${faceContext}
 Recommend 3 treatments for overall skin health and radiance.
 
 Return ONLY valid JSON (no markdown):
@@ -238,11 +341,16 @@ CRITICAL RULES:
 - Only recommend treatments with enough recovery time before D-day
 - Tone: excited, supportive, "당신의 특별한 날을 위해" energy
 
+PERSONALIZATION RULES:
+- Consider their current skin score when recommending timing
+- If score is low (<70), prioritize recovery treatments
+- If score is high (>80), focus on maintenance and glow treatments
+
 User profile:
 - Event: ${profile.eventType ?? '없음'} D-${daysLeft ?? '?'}
 ${profileLine('Skin type', profile.skinType)}
 ${profileLine('Skin score', profile.lastSkinScore != null ? `${profile.lastSkinScore}점` : '미스캔')}
-
+${scanContext}${faceContext}
 Focus on timing-appropriate recommendations for D-${daysLeft ?? '?'}.
 
 Return ONLY valid JSON (no markdown):
@@ -328,6 +436,8 @@ Return ONLY valid JSON (no markdown):
             eventType={profile.eventType}
             daysLeft={daysLeft}
             onNext={handleNextFromStep1}
+            scanFetching={scanFetching}
+            hasScanData={!!latestScanDetail}
           />
         )}
 
@@ -397,6 +507,8 @@ function Step1({
   eventType,
   daysLeft,
   onNext,
+  scanFetching,
+  hasScanData,
 }: {
   mode: TreatmentMode;
   setMode: (m: TreatmentMode) => void;
@@ -404,6 +516,8 @@ function Step1({
   eventType: string | null;
   daysLeft: number | null;
   onNext: () => void;
+  scanFetching: boolean;
+  hasScanData: boolean;
 }) {
   return (
     <ScrollView contentContainerStyle={styles.step1Container}>
@@ -441,6 +555,14 @@ function Step1({
           onPress={() => setMode('dday')}
         />
       )}
+
+      {scanFetching ? (
+        <Text style={styles.noScanNote}>내 스캔 데이터 불러오는 중...</Text>
+      ) : !hasScanData ? (
+        <Text style={styles.noScanNote}>
+          💡 피부 스캔 후 이용하면 더 정확한 추천을 받을 수 있어요
+        </Text>
+      ) : null}
 
       <TouchableOpacity
         style={[styles.nextBtn, !mode && styles.nextBtnDisabled]}
@@ -799,6 +921,12 @@ const styles = StyleSheet.create({
   },
   nextBtnDisabled: { backgroundColor: '#E0E0E0' },
   nextBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  noScanNote: {
+    fontSize: 12,
+    color: '#8A8A9A',
+    textAlign: 'center',
+    marginTop: 8,
+  },
 
   // Step 2
   step2Container: {

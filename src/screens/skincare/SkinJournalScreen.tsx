@@ -442,9 +442,19 @@ function TodayLogTab() {
     }
   };
 
-  const allRoutineSteps: RoutineStep[] = [
-    ...(routine?.am ?? []),
-    ...(routine?.pm ?? []),
+  // Each step gets a unique productKey so AM/PM steps with the same product
+  // name don't share check state. Custom products use their bare name.
+  const allRoutineSteps: (RoutineStep & { productKey: string; slot: 'am' | 'pm' })[] = [
+    ...((routine?.am ?? []).map((s, i) => ({
+      ...s,
+      slot: 'am' as const,
+      productKey: `am_${i}_${s.product}`,
+    }))),
+    ...((routine?.pm ?? []).map((s, i) => ({
+      ...s,
+      slot: 'pm' as const,
+      productKey: `pm_${i}_${s.product}`,
+    }))),
   ];
 
   const scannedToday = lastScanDate === today;
@@ -525,13 +535,13 @@ function TodayLogTab() {
             아직 등록된 루틴이 없어요. 제품을 직접 추가해봐요.
           </Text>
         ) : (
-          allRoutineSteps.map((s, i) => {
-            const checked = checkin.products_used.includes(s.product);
+          allRoutineSteps.map((s) => {
+            const checked = checkin.products_used.includes(s.productKey);
             return (
               <TouchableOpacity
-                key={`${s.product}-${i}`}
+                key={s.productKey}
                 style={styles.productCheckRow}
-                onPress={() => toggleProductCheck(s.product)}
+                onPress={() => toggleProductCheck(s.productKey)}
                 activeOpacity={0.7}
               >
                 <View
@@ -542,15 +552,17 @@ function TodayLogTab() {
                 <Text style={styles.productName} numberOfLines={1}>
                   {s.product}
                 </Text>
-                <Text style={styles.productCategory}>{s.category}</Text>
+                <Text style={styles.productCategory}>
+                  {s.slot.toUpperCase()} · {s.category}
+                </Text>
               </TouchableOpacity>
             );
           })
         )}
 
-        {/* Custom products user added today (not in routine) */}
+        {/* Custom products user added today (not matching any routine key) */}
         {checkin.products_used
-          .filter((p) => !allRoutineSteps.some((s) => s.product === p))
+          .filter((p) => !allRoutineSteps.some((s) => s.productKey === p))
           .map((p, i) => (
             <TouchableOpacity
               key={`custom-${p}-${i}`}
@@ -1619,7 +1631,7 @@ function HistoryTab() {
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
       {/* Calendar */}
-      <View style={styles.card}>
+      <View style={[styles.card, styles.calendarCard]}>
         <View style={styles.calHeader}>
           <TouchableOpacity onPress={goPrevMonth} hitSlop={6}>
             <Ionicons name="chevron-back" size={20} color="#1A1A2E" />
@@ -2095,12 +2107,17 @@ const styles = StyleSheet.create({
   timelineLabelRight: { fontSize: 11, color: '#8A8A9A' },
   timelineScore: { fontSize: 13, color: '#1A1A2E', marginTop: 4 },
 
-  // Calendar
+  // Calendar (MEVE — compact override of shared card style)
+  calendarCard: {
+    paddingBottom: 12,
+    marginBottom: 0,
+    gap: 4,
+  },
   calHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   calHeaderText: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
   calWeekRow: {
@@ -2139,7 +2156,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 16,
-    paddingTop: 8,
+    paddingTop: 12,
+    paddingBottom: 0,
+    marginTop: 4,
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
   },

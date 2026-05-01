@@ -78,6 +78,8 @@ export function MyPageScreen() {
   const [email, setEmail] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
   const [scans, setScans] = useState<ScanRow[]>([]);
+  const [showAllScans, setShowAllScans] = useState(false);
+  const SCAN_PREVIEW_COUNT = 3;
 
   const loadProfile = async () => {
     // Premium status (cheap — no auth call)
@@ -321,7 +323,7 @@ export function MyPageScreen() {
             </View>
           ) : (
             <View style={styles.scanList}>
-              {scans.map((row) => (
+              {(showAllScans ? scans : scans.slice(0, SCAN_PREVIEW_COUNT)).map((row) => (
                 <TouchableOpacity
                   key={row.id}
                   style={styles.scanRow}
@@ -350,6 +352,19 @@ export function MyPageScreen() {
                   </View>
                 </TouchableOpacity>
               ))}
+              {scans.length > SCAN_PREVIEW_COUNT && (
+                <TouchableOpacity
+                  style={styles.showMoreBtn}
+                  onPress={() => setShowAllScans((prev) => !prev)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.showMoreText}>
+                    {showAllScans
+                      ? '접기 ▲'
+                      : `더보기 (${scans.length - SCAN_PREVIEW_COUNT}개 더) ▼`}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -962,6 +977,18 @@ const styles = StyleSheet.create({
   scanCondition: { ...Typography.body, color: Colors.textPrimary },
   scanRowRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   scanScore: { fontSize: 15, fontWeight: '700' },
+  showMoreBtn: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#F5F5F5',
+  },
+  showMoreText: {
+    fontSize: 13,
+    color: '#5BA3D9',
+    fontWeight: '500',
+  },
 
   // Menu
   menuCard: {

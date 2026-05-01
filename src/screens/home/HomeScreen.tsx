@@ -47,6 +47,7 @@ import { useBeautyProfile } from '../../stores/beautyProfileStore';
 import { EVENT_CONFIG, EventKey } from '../../constants/events';
 import {
   getEventConfig as getEventThemeConfig,
+  phaseStatus,
 } from '../../constants/eventConfig';
 
 type Nav = CompositeNavigationProp<
@@ -146,6 +147,22 @@ export function HomeScreen() {
 
   // MEVE-202 — first-scan banner state
   const lastSkinScore = useBeautyProfile((s) => s.lastSkinScore);
+  // MEVE-246 — extra subscriptions for the 4 new home cards
+  const profilePersonalColor = useBeautyProfile((s) => s.personalColor);
+  const profileSkinType = useBeautyProfile((s) => s.skinType);
+  const profileVibe = useBeautyProfile((s) => s.vibe);
+  const [prevScore, setPrevScore] = useState<number | null>(null);
+  useEffect(() => {
+    AsyncStorage.getItem('meve_previous_scan_result').then((raw) => {
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.overallScore === 'number') {
+          setPrevScore(parsed.overallScore);
+        }
+      } catch {}
+    });
+  }, []);
   const [scanBannerDismissed, setScanBannerDismissed] = useState(false);
   useEffect(() => {
     AsyncStorage.getItem('meve_scan_banner_dismissed').then((v) => {
@@ -302,6 +319,28 @@ export function HomeScreen() {
   const eventConfig = eventType ? EVENT_CONFIG[eventType as EventKey] : null;
   // MEVE-244 — event-specific theme + plan + tip from EVENT_CONFIG (eventConfig.ts)
   const eventTheme = getEventThemeConfig(eventType);
+
+  // MEVE-246 — derived values for the 4 new home cards
+  const scoreDiff =
+    lastSkinScore != null && prevScore != null ? lastSkinScore - prevScore : null;
+  const ddayLeft =
+    eventDate != null
+      ? Math.max(
+          0,
+          Math.ceil(
+            (new Date(eventDate).getTime() - Date.now()) / 86_400_000
+          )
+        )
+      : null;
+  const currentPhase = (() => {
+    if (!eventTheme || ddayLeft == null) return null;
+    for (const phase of eventTheme.plan) {
+      if (phaseStatus(phase.daysBeforeLabel, ddayLeft) === 'current') {
+        return phase;
+      }
+    }
+    return eventTheme.plan[0] ?? null;
+  })();
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const ddayCount = eventDate
@@ -644,6 +683,39 @@ export function HomeScreen() {
           )}
         </GlassCard>
 
+        {/* ── MEVE-246 NEW CARD 1: DNA 요약 ──────────────────────────── */}
+        {(profilePersonalColor || profileSkinType || lastSkinScore != null) && (
+          <TouchableOpacity
+            style={styles.dnaSummaryCard}
+            onPress={() => navigation.navigate('MyPage')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.dnaSummaryLeft}>
+              <Text style={styles.dnaSummaryLabel}>내 뷰티 DNA ✨</Text>
+              <Text style={styles.dnaSummaryContent} numberOfLines={1}>
+                {[profilePersonalColor, profileSkinType, profileVibe]
+                  .filter(Boolean)
+                  .join(' · ') || '프로필을 완성해봐요'}
+              </Text>
+            </View>
+            {lastSkinScore != null && (
+              <View style={styles.dnaSummaryScore}>
+                <Text style={styles.dnaSummaryScoreNum}>{lastSkinScore}점</Text>
+                {scoreDiff !== null && scoreDiff !== 0 && (
+                  <Text
+                    style={[
+                      styles.dnaSummaryScoreDiff,
+                      { color: scoreDiff > 0 ? '#7CB798' : '#FF6B6B' },
+                    ]}
+                  >
+                    {scoreDiff > 0 ? `↑ +${scoreDiff}` : `↓ ${scoreDiff}`}
+                  </Text>
+                )}
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
+
         {/* ── SECTION 2: SKIN + LOOK TODAY ────────────────────────────── */}
         <Text style={styles.sectionTitle}>오늘의 체크인</Text>
         <View style={styles.dualRow}>
@@ -728,6 +800,43 @@ export function HomeScreen() {
             </LinearGradient>
           </View>
         </View>
+
+        {/* ── MEVE-246 NEW CARD 2: D-day 플랜 현재 단계 ─────────────────── */}
+        {eventTheme && currentPhase && (
+          <TouchableOpacity
+            style={styles.planPhaseCard}
+            onPress={() => navigation.navigate('DdayPlan')}
+            activeOpacity={0.85}
+          >
+            <View
+              style={[
+                styles.planPhaseAccent,
+                { backgroundColor: eventTheme.theme.primary },
+              ]}
+            />
+            <View style={styles.planPhaseContent}>
+              <Text style={styles.planPhaseLabel}>
+                {eventTheme.emoji} {eventTheme.label} 준비 플랜
+              </Text>
+              <Text style={styles.planPhaseTitle}>
+                지금은 {currentPhase.title} 구간이에요
+              </Text>
+              {currentPhase.items[0] && (
+                <Text style={styles.planPhaseItem} numberOfLines={1}>
+                  • {currentPhase.items[0]}
+                </Text>
+              )}
+            </View>
+            <Text
+              style={[
+                styles.planPhaseArrow,
+                { color: eventTheme.theme.primary },
+              ]}
+            >
+              →
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── SECTION 3: RECENT ACTIVITY HORIZONTAL SCROLL ────────────── */}
         <Text style={styles.sectionTitle}>최근 활동</Text>
@@ -882,7 +991,55 @@ export function HomeScreen() {
               <Text style={[styles.hCardCta, { color: '#B8860B' }]}>오늘 스캔하기 →</Text>
             </TouchableOpacity>
           </GlassCard>
+
+          {/* MEVE-246 NEW CARD 3 — 피부 여정 미니 요약 */}
+          {lastSkinScore != null && (
+            <TouchableOpacity
+              style={styles.activityCard}
+              onPress={() => navigation.navigate('SkinJournal')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.activityCardIcon}>📊</Text>
+              <Text style={styles.activityCardTitle}>내 피부 여정</Text>
+              <Text style={[styles.activityCardValue, { color: '#5BA3D9' }]}>
+                {lastSkinScore}점
+              </Text>
+              {scoreDiff !== null && scoreDiff !== 0 && (
+                <Text
+                  style={[
+                    styles.activityCardSub,
+                    { color: scoreDiff > 0 ? '#7CB798' : '#FF6B6B' },
+                  ]}
+                >
+                  {scoreDiff > 0 ? `+${scoreDiff}점 ↑` : `${scoreDiff}점 ↓`}
+                </Text>
+              )}
+              <Text style={styles.activityCardLink}>기록 보기 →</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
+
+        {/* ── MEVE-246 NEW CARD 4: 시술 추천 진입점 ──────────────────── */}
+        {eventType && (
+          <TouchableOpacity
+            style={styles.treatmentEntryCard}
+            onPress={() =>
+              navigation.navigate('TreatmentRecommend', { mode: 'skin' })
+            }
+            activeOpacity={0.85}
+          >
+            <Text style={styles.treatmentEntryIcon}>👩‍⚕️</Text>
+            <View style={styles.treatmentEntryContent}>
+              <Text style={styles.treatmentEntryTitle}>
+                {eventTheme?.label ?? eventType} D-day 시술 가이드
+              </Text>
+              <Text style={styles.treatmentEntrySub}>
+                지금 받으면 좋은 시술을 알아봐요
+              </Text>
+            </View>
+            <Text style={styles.treatmentEntryArrow}>→</Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── SECTION 5: 오늘의 팁 ───────────────────────────────────────── */}
         <GlassCard
@@ -1424,5 +1581,156 @@ const styles = StyleSheet.create({
     fontFamily: 'NanumSquareRoundR',
     color: '#1A1A2E',
     lineHeight: 20,
+  },
+
+  // MEVE-246 — DNA summary card
+  dnaSummaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    shadowColor: '#D0B0D8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  dnaSummaryLeft: { flex: 1 },
+  dnaSummaryLabel: {
+    fontSize: 11,
+    color: '#8A8A9A',
+    fontWeight: '500',
+    marginBottom: 3,
+  },
+  dnaSummaryContent: {
+    fontSize: 14,
+    color: '#1A1A2E',
+    fontWeight: '600',
+  },
+  dnaSummaryScore: { alignItems: 'flex-end', marginLeft: 8 },
+  dnaSummaryScoreNum: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#5BA3D9',
+  },
+  dnaSummaryScoreDiff: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // MEVE-246 — D-day plan phase card
+  planPhaseCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    overflow: 'hidden',
+    shadowColor: '#B0B0B0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  planPhaseAccent: {
+    width: 4,
+    alignSelf: 'stretch',
+  },
+  planPhaseContent: {
+    flex: 1,
+    padding: 14,
+  },
+  planPhaseLabel: {
+    fontSize: 11,
+    color: '#8A8A9A',
+    fontWeight: '500',
+    marginBottom: 3,
+  },
+  planPhaseTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A1A2E',
+    marginBottom: 3,
+  },
+  planPhaseItem: {
+    fontSize: 12,
+    color: '#5A5A7A',
+  },
+  planPhaseArrow: {
+    fontSize: 18,
+    fontWeight: '700',
+    paddingRight: 14,
+  },
+
+  // MEVE-246 — Activity card (피부 여정 mini)
+  activityCard: {
+    width: 160,
+    maxHeight: 170,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 18,
+    padding: 14,
+    shadowColor: '#B0B0B0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 1,
+    gap: 2,
+  },
+  activityCardIcon: { fontSize: 24, marginBottom: 6 },
+  activityCardTitle: {
+    fontSize: 11,
+    color: '#8A8A9A',
+    marginBottom: 4,
+  },
+  activityCardValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  activityCardSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  activityCardLink: {
+    fontSize: 11,
+    color: '#5BA3D9',
+    fontWeight: '500',
+  },
+
+  // MEVE-246 — Treatment entry card
+  treatmentEntryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF0F5',
+    borderRadius: 16,
+    padding: 14,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FFC4D6',
+  },
+  treatmentEntryIcon: { fontSize: 28, marginRight: 12 },
+  treatmentEntryContent: { flex: 1 },
+  treatmentEntryTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A1A2E',
+    marginBottom: 2,
+  },
+  treatmentEntrySub: {
+    fontSize: 12,
+    color: '#8A8A9A',
+  },
+  treatmentEntryArrow: {
+    fontSize: 18,
+    color: '#FF6B9D',
+    fontWeight: '700',
   },
 });
