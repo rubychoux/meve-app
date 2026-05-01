@@ -1,5 +1,5 @@
 // MEVE-195 LOOK tab full redesign — 6 sections wired through beautyProfileStore.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import { MainStackParamList } from '../../types';
 import { supabase } from '../../services/supabase';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
 import { cleanJson } from '../../utils/openai';
+import { getEventConfig } from '../../constants/eventConfig';
 
 const logo = require('../../../assets/images/meve-logo.png');
 
@@ -198,7 +199,14 @@ Return ONLY valid JSON (no markdown):
       if (!res.ok) throw new Error(data.error?.message ?? `OpenAI ${res.status}`);
       const parsed = JSON.parse(cleanJson(data.choices[0].message.content ?? '')) as TodaysLookData;
 
-      const imageUrl = await fetchUnsplashImage(parsed.unsplashQuery ?? 'korean makeup');
+      // MEVE-244 — prefer event-specific Unsplash query when an event is set.
+      const eventThemeConfig = getEventConfig(eventType);
+      const queryFallback =
+        eventThemeConfig?.unsplashQuery ??
+        `${vibe ?? 'natural'} makeup korean beauty`;
+      const imageUrl = await fetchUnsplashImage(
+        parsed.unsplashQuery ?? queryFallback
+      );
 
       const finalLook: TodaysLookData = {
         ...parsed,
@@ -232,6 +240,17 @@ Return ONLY valid JSON (no markdown):
   useEffect(() => {
     loadTodaysLook();
   }, [loadTodaysLook]);
+
+  // MEVE — when eventType changes, invalidate today's look cache + regenerate
+  // so the look matches the new event theme immediately.
+  const prevEventTypeRef = useRef(eventType);
+  useEffect(() => {
+    if (prevEventTypeRef.current === eventType) return;
+    prevEventTypeRef.current = eventType;
+    AsyncStorage.removeItem(todayKey()).catch(() => {});
+    setTodaysLook(null);
+    generateTodaysLook();
+  }, [eventType, generateTodaysLook]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -360,67 +379,71 @@ Return ONLY valid JSON (no markdown):
           onPress={() => navigation.navigate('TodaysLook')}
         />
 
-        {/* ─── SECTION 2: 컬러 매치 ──────────────────────────────────────── */}
+        {/* ─── SECTION 2: 내 뷰티 솔루션 (MEVE-241) ───────────────────────── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>컬러 매치 💄</Text>
-          <View style={styles.colorMatchCard}>
-            <Text style={styles.colorMatchTitle}>
-              새 색조 제품이 나한테 어울릴까요?
-            </Text>
-            <View style={styles.colorMatchBtnRow}>
-              <TouchableOpacity
-                style={styles.colorMatchBtn}
-                onPress={() => navigation.navigate('ColorMatch')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.colorMatchBtnText}>📸 테스터 스캔</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.colorMatchBtn, styles.colorMatchBtnAlt]}
-                onPress={() => navigation.navigate('ColorMatch')}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.colorMatchBtnText, { color: PINK }]}>
-                  🎨 내 컬러 보기
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.paletteRow}>
-              {myColorPalette.length === 0 ? (
-                <Text style={styles.emptyHint}>아직 등록된 색상이 없어요</Text>
-              ) : (
-                myColorPalette.map((hex) => (
-                  <View
-                    key={hex}
-                    style={[styles.paletteDot, { backgroundColor: hex }]}
-                  />
-                ))
-              )}
-            </View>
-          </View>
-        </View>
+          <Text style={styles.sectionTitle}>내 뷰티 솔루션 ✨</Text>
 
-        {/* ─── SECTION 3: 인스포 룩 분석 ─────────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>인스포 룩 분석 ✨</Text>
-          <LinearGradient
-            colors={['#FFF0F5', '#F0F0FF']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.inspoCard}
+          {/* 메이크업으로 — 컬러 매치 */}
+          <TouchableOpacity
+            style={styles.solutionCard}
+            onPress={() => navigation.navigate('ColorMatch')}
+            activeOpacity={0.85}
           >
-            <Text style={styles.inspoTitle}>핀터레스트 저장 사진이 있나요?</Text>
-            <Text style={styles.inspoDesc}>
-              그 느낌으로 나에게 맞는 메이크업을 알려드려요
-            </Text>
-            <TouchableOpacity
-              style={styles.primaryBtn}
-              onPress={() => navigation.navigate('InspoLook')}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.primaryBtnText}>사진 업로드하기 →</Text>
-            </TouchableOpacity>
-          </LinearGradient>
+            <Text style={styles.solutionIcon}>💄</Text>
+            <View style={styles.solutionContent}>
+              <Text style={styles.solutionTitle}>메이크업으로</Text>
+              <Text style={styles.solutionSub}>
+                테스터 찍으면 어울리는지 바로 알려드려요
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#C0C0CC" />
+          </TouchableOpacity>
+
+          {/* 시술로 — AI 시술 추천 */}
+          <TouchableOpacity
+            style={[styles.solutionCard, styles.solutionCardHighlight]}
+            onPress={() => navigation.navigate('TreatmentRecommend', { mode: 'look' })}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.solutionIcon}>👩‍⚕️</Text>
+            <View style={styles.solutionContent}>
+              <Text style={styles.solutionTitle}>시술로</Text>
+              <Text style={styles.solutionSub}>
+                얼굴형·퍼스널컬러 기반 시술 가이드
+              </Text>
+            </View>
+            <View style={styles.newTag}>
+              <Text style={styles.newTagText}>NEW</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* 스타일로 — 인스포 룩 */}
+          <TouchableOpacity
+            style={styles.solutionCard}
+            onPress={() => navigation.navigate('InspoLook')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.solutionIcon}>✨</Text>
+            <View style={styles.solutionContent}>
+              <Text style={styles.solutionTitle}>스타일로</Text>
+              <Text style={styles.solutionSub}>
+                핀터레스트 사진으로 나만의 메이크업 찾기
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#C0C0CC" />
+          </TouchableOpacity>
+
+          {/* 내 컬러 팔레트 미리보기 */}
+          {myColorPalette.length > 0 && (
+            <View style={styles.solutionPaletteRow}>
+              {myColorPalette.map((hex) => (
+                <View
+                  key={hex}
+                  style={[styles.paletteDot, { backgroundColor: hex }]}
+                />
+              ))}
+            </View>
+          )}
         </View>
 
         {/* ─── SECTION 4: 내 퍼스널컬러 팔레트 ───────────────────────────── */}
@@ -1007,6 +1030,44 @@ const styles = StyleSheet.create({
   },
   vibePillText: { fontSize: 13, color: '#8A8A9A', fontWeight: '600' },
   vibePillTextActive: { color: PINK, fontWeight: '700' },
+
+  // 내 뷰티 솔루션 (MEVE-241)
+  solutionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 8,
+    shadowColor: '#B0B0B0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  solutionCardHighlight: {
+    backgroundColor: '#FFF0F5',
+    borderWidth: 1.5,
+    borderColor: '#FFC4D6',
+  },
+  solutionIcon: { fontSize: 28, marginRight: 12 },
+  solutionContent: { flex: 1 },
+  solutionTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  solutionSub: { fontSize: 12, color: '#8A8A9A', marginTop: 2 },
+  newTag: {
+    backgroundColor: '#FF6B9D',
+    borderRadius: 50,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  newTagText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
+  solutionPaletteRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+    paddingHorizontal: 4,
+  },
 });
 
 // suppress unused import (Colors retained for future palette extensions)

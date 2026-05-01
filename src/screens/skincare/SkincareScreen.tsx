@@ -33,6 +33,7 @@ import { supabase } from '../../services/supabase';
 import { AIScanStackParamList, MainStackParamList, ScanAnalysisResult } from '../../types';
 import { loadRoutineCheckin, RoutineCheckin } from '../../utils/routineCheckin';
 import { cleanJson } from '../../utils/openai';
+import { useBeautyProfile } from '../../stores/beautyProfileStore';
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<AIScanStackParamList, 'SkinHome'>,
@@ -92,10 +93,29 @@ interface GeneratedRoutine {
 export function SkincareScreen() {
   const navigation = useNavigation<Nav>();
 
-  const [eventType, setEventType] = useState<string | null>(null);
-  const [eventDate, setEventDate] = useState<string | null>(null);
+  // MEVE — event source of truth: beautyProfileStore (reactive across screens)
+  const eventType = useBeautyProfile((s) => s.eventType);
+  const eventDate = useBeautyProfile((s) => s.eventDate);
   const [lastScan, setLastScan] = useState<ScanAnalysisResult | null>(null);
   const [scanLoaded, setScanLoaded] = useState(false);
+  // MEVE-242 — for the journal entry card
+  const lastSkinScore = useBeautyProfile((s) => s.lastSkinScore);
+  const [previousSkinScore, setPreviousSkinScore] = useState<number | null>(null);
+  useEffect(() => {
+    AsyncStorage.getItem('meve_previous_scan_result').then((raw) => {
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.overallScore === 'number') {
+          setPreviousSkinScore(parsed.overallScore);
+        }
+      } catch {}
+    });
+  }, []);
+  const journalScoreDiff =
+    lastSkinScore != null && previousSkinScore != null
+      ? lastSkinScore - previousSkinScore
+      : null;
 
   // Ingredient analysis
   const [ingredientResult, setIngredientResult] = useState<IngredientResult | null>(null);
@@ -136,7 +156,6 @@ export function SkincareScreen() {
   // ── Load data on mount ──────────────────────────────────────────────────────
 
   useEffect(() => {
-    loadEvent();
     loadLastScan();
     loadCachedIngredients();
     loadRoutine();
@@ -149,17 +168,6 @@ export function SkincareScreen() {
       loadGeneratedRoutine();
     }, [])
   );
-
-  const loadEvent = async () => {
-    try {
-      const [[, type], [, date]] = await AsyncStorage.multiGet([
-        'meve_event_type',
-        'meve_event_date',
-      ]);
-      if (type) setEventType(type);
-      if (date) setEventDate(date);
-    } catch {}
-  };
 
   const loadLastScan = async () => {
     try {
@@ -388,6 +396,86 @@ Max 4 recommended, 3 avoid. All text in Korean.`,
           </View>
           <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
         </TouchableOpacity>
+
+        {/* ── 2-0. 내 피부 여정 (MEVE-242) ────────────────────────────────── */}
+        <TouchableOpacity
+          style={styles.journalEntryCard}
+          onPress={() => navigation.navigate('SkinJournal')}
+          activeOpacity={0.85}
+        >
+          <View style={styles.journalEntryLeft}>
+            <Text style={styles.journalEntryTitle}>내 피부 여정 📊</Text>
+            <Text style={styles.journalEntrySub}>
+              스코어 변화 · 시술 기록 · 제품 기록
+            </Text>
+          </View>
+
+          {lastSkinScore != null && (
+            <View style={styles.journalScoreBadge}>
+              <Text style={styles.journalScoreText}>{lastSkinScore}점</Text>
+              {journalScoreDiff !== null && journalScoreDiff !== 0 && (
+                <Text
+                  style={[
+                    styles.journalScoreDiff,
+                    {
+                      color: journalScoreDiff > 0 ? '#7CB798' : '#FF6B6B',
+                    },
+                  ]}
+                >
+                  {journalScoreDiff > 0 ? '+' : ''}
+                  {journalScoreDiff}
+                </Text>
+              )}
+            </View>
+          )}
+
+          <Ionicons name="chevron-forward" size={18} color="#C0C0CC" />
+        </TouchableOpacity>
+
+        {/* ── 2-1. 내 피부 케어 플랜 ──────────────────────────────────────── */}
+        <View style={styles.carePlanCard}>
+          <Text style={styles.carePlanTitle}>내 피부 케어 플랜 ✨</Text>
+          {eventType && daysLeft != null && (
+            <Text style={styles.carePlanSubtitle}>
+              {EVENT_INFO[eventType]?.label ?? eventType} D-{daysLeft} 기준으로 정리했어요
+            </Text>
+          )}
+
+          <View style={styles.carePlanRow}>
+            <TouchableOpacity
+              style={styles.carePlanItem}
+              onPress={() => navigation.navigate('RoutineCoachChat')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.carePlanItemIcon}>🏠</Text>
+              <Text style={styles.carePlanItemLabel}>홈케어</Text>
+              <Text style={styles.carePlanItemSub}>루틴 보기</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.carePlanItem, styles.carePlanItemHighlight]}
+              onPress={() => navigation.navigate('TreatmentRecommend', { mode: 'skin' })}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.carePlanItemIcon}>👩‍⚕️</Text>
+              <Text style={styles.carePlanItemLabel}>피부과</Text>
+              <Text style={styles.carePlanItemSub}>시술 추천</Text>
+              <View style={styles.newBadge}>
+                <Text style={styles.newBadgeText}>NEW</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.carePlanItem}
+              onPress={analyzeIngredients}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.carePlanItemIcon}>🧴</Text>
+              <Text style={styles.carePlanItemLabel}>성분</Text>
+              <Text style={styles.carePlanItemSub}>분석 보기</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* ── 3. 성분 스캔하기 ────────────────────────────────────────────── */}
         <TouchableOpacity
@@ -1310,5 +1398,121 @@ const styles = StyleSheet.create({
   generatedEmptyBtnText: {
     color: '#fff',
     fontWeight: '600',
+  },
+
+  // 내 피부 케어 플랜 (MEVE-241)
+  carePlanCard: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 20,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 4,
+    shadowColor: '#B0B0B0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  carePlanTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A2E',
+    marginBottom: 4,
+  },
+  carePlanSubtitle: {
+    fontSize: 12,
+    color: '#8A8A9A',
+    marginBottom: 12,
+  },
+  carePlanRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  carePlanItem: {
+    flex: 1,
+    backgroundColor: '#F8F9FC',
+    borderRadius: 14,
+    padding: 12,
+    alignItems: 'center',
+  },
+  carePlanItemHighlight: {
+    backgroundColor: '#FFF0F5',
+    borderWidth: 1.5,
+    borderColor: '#FFC4D6',
+  },
+  carePlanItemIcon: {
+    fontSize: 22,
+    marginBottom: 4,
+  },
+  carePlanItemLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  carePlanItemSub: {
+    fontSize: 10,
+    color: '#8A8A9A',
+    marginTop: 2,
+  },
+  newBadge: {
+    backgroundColor: '#FF6B9D',
+    borderRadius: 50,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 4,
+  },
+  newBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+
+  // 내 피부 여정 entry card (MEVE-242)
+  journalEntryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#5BA3D9',
+    shadowColor: '#B0B0B0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 1,
+    gap: 10,
+  },
+  journalEntryLeft: { flex: 1 },
+  journalEntryTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A1A2E',
+    marginBottom: 2,
+  },
+  journalEntrySub: {
+    fontSize: 12,
+    color: '#8A8A9A',
+  },
+  journalScoreBadge: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 50,
+    backgroundColor: '#EFF6FF',
+  },
+  journalScoreText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#5BA3D9',
+  },
+  journalScoreDiff: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

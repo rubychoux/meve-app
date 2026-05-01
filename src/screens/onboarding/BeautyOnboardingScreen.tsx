@@ -57,13 +57,12 @@ export function BeautyOnboardingScreen() {
         await updateProfile({ skinType: selectedSkin });
       }
 
-      // 2. Save event if any
+      // 2. Save event if any — beautyProfileStore.updateProfile pushes to
+      //    AsyncStorage AND Supabase, so all subscribed screens re-render.
       if (selectedEvent) {
         const dateStr = eventDate ? eventDate.toISOString() : '';
         setEvent(selectedEvent, dateStr, []);
-        const writes: Array<[string, string]> = [['meve_event_type', selectedEvent]];
-        if (dateStr) writes.push(['meve_event_date', dateStr]);
-        await AsyncStorage.multiSet(writes);
+        await updateProfile({ eventType: selectedEvent, eventDate: dateStr });
       }
 
       // 3. Mark onboarding done

@@ -42,9 +42,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CompositeNavigationProp } from '@react-navigation/native';
 import { MainTabParamList, MainStackParamList } from '../../types';
 import { supabase } from '../../services/supabase';
-import { useAuthStore } from '../../store';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
 import { EVENT_CONFIG, EventKey } from '../../constants/events';
+import {
+  getEventConfig as getEventThemeConfig,
+} from '../../constants/eventConfig';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Home'>,
@@ -127,7 +129,9 @@ const LOOK_TIPS = [
 
 export function HomeScreen() {
   const navigation = useNavigation<Nav>();
-  const { eventType, eventDate, setEvent } = useAuthStore();
+  // MEVE — event source of truth: beautyProfileStore (reactive across screens)
+  const eventType = useBeautyProfile((s) => s.eventType);
+  const eventDate = useBeautyProfile((s) => s.eventDate);
   const { width } = useWindowDimensions();
 
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -166,7 +170,6 @@ export function HomeScreen() {
     loadProfile();
     loadScans();
     loadRoutine();
-    loadEventFromStorage();
     loadLookPrefs();
     loadCalendarExpanded();
 
@@ -280,18 +283,6 @@ export function HomeScreen() {
     } catch {}
   };
 
-  const loadEventFromStorage = async () => {
-    if (eventType) return;
-    try {
-      const [[, storedType], [, storedDate], [, storedDirections]] =
-        await AsyncStorage.multiGet(['meve_event_type', 'meve_event_date', 'meve_care_direction']);
-      if (storedType) {
-        const directions = storedDirections ? JSON.parse(storedDirections) : [];
-        setEvent(storedType, storedDate ?? '', directions);
-      }
-    } catch {}
-  };
-
   const toggleRoutine = async (type: 'am' | 'pm') => {
     const next = { ...routine, [type]: !routine[type] };
     setRoutine(next);
@@ -308,6 +299,8 @@ export function HomeScreen() {
 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const eventConfig = eventType ? EVENT_CONFIG[eventType as EventKey] : null;
+  // MEVE-244 — event-specific theme + plan + tip from EVENT_CONFIG (eventConfig.ts)
+  const eventTheme = getEventThemeConfig(eventType);
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const ddayCount = eventDate
@@ -412,16 +405,24 @@ export function HomeScreen() {
               {eventConfig && ddayCount != null ? (
                 <>
                   <TouchableOpacity
-                    style={styles.ddayPillSet}
+                    style={[
+                      styles.ddayPillSet,
+                      eventTheme && {
+                        backgroundColor: eventTheme.theme.badgeBackground,
+                      },
+                    ]}
                     onPress={() => navigation.navigate('EventFlow')}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.ddayPillTextSet}>
-                      {eventType === 'wedding' ? '💍' :
-                       eventType === 'date' ? '💕' :
-                       eventType === 'graduation' ? '🎓' :
-                       eventType === 'travel' ? '✈️' : '✨'}{' '}
-                      {eventConfig.label}까지 D-{ddayCount}
+                    <Text
+                      style={[
+                        styles.ddayPillTextSet,
+                        eventTheme && { color: eventTheme.theme.badgeText },
+                      ]}
+                    >
+                      {eventTheme
+                        ? eventTheme.badgeText(ddayCount)
+                        : `${eventConfig.emoji ?? '✨'} ${eventConfig.label}까지 D-${ddayCount}`}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -441,6 +442,23 @@ export function HomeScreen() {
                 </TouchableOpacity>
               )}
             </View>
+            {eventTheme && ddayCount != null && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('DdayPlan')}
+                hitSlop={6}
+                style={styles.planEntryRow}
+                activeOpacity={0.75}
+              >
+                <Text
+                  style={[
+                    styles.planEntryText,
+                    { color: eventTheme.theme.primary },
+                  ]}
+                >
+                  {eventTheme.label} 준비 플랜 보기 →
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.avatarBtn}>
@@ -892,7 +910,9 @@ export function HomeScreen() {
               오늘의 {tipLabel} 팁
             </Text>
           </View>
-          <Text style={styles.tipBody}>{tipText}</Text>
+          <Text style={styles.tipBody}>
+            {eventTheme ? eventTheme.homeTip : tipText}
+          </Text>
         </GlassCard>
 
         <View style={{ height: 100 }} />
@@ -950,6 +970,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     flexWrap: 'wrap',
+  },
+  planEntryRow: {
+    paddingTop: 4,
+    paddingBottom: 2,
+  },
+  planEntryText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   ddayPillSet: {
     backgroundColor: '#FFF0F5',

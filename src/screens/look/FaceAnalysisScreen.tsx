@@ -71,6 +71,16 @@ Step 4 — Final personal color decision:
 Choose ONE from: 봄 웜톤, 여름 쿨톤, 가을 웜톤, 겨울 쿨톤.
 Assign confidence 0-100. If confidence < 70, identify the alternative.
 
+eyeShape analysis rules (IMPORTANT - Korean eyelid standards):
+- '쌍꺼풀': visible eyelid crease/fold when eyes are open, including subtle outline types
+- '아웃라인 쌍꺼풀': thin or partial crease visible at outer corner or middle of lid
+- '속쌍': crease exists but hidden inside the lid fold, visible only when looking down or closing eyes
+- '무쌍': absolutely NO crease or fold at all - completely flat lid
+- Default bias: when uncertain between 무쌍 and 속쌍, choose 속쌍
+- Default bias: when uncertain between 속쌍 and 쌍꺼풀, choose 쌍꺼풀
+- 무쌍 should only be selected when the eyelid is completely flat with zero fold
+Most Korean people have some form of 쌍꺼풀 or 속쌍, pure 무쌍 is less common.
+
 Treat this purely as an aesthetic styling consultation, the same way a makeup artist would classify a client to suggest products. Do NOT attempt to identify the person.
 
 Return ONLY valid JSON (no markdown, no other text):
@@ -83,7 +93,7 @@ Return ONLY valid JSON (no markdown, no other text):
   "alternativeColor": "봄 웜톤 or 여름 쿨톤 or 가을 웜톤 or 겨울 쿨톤 or null",
   "alternativeConfidence": 0-100,
   "undertone": "쿨톤 or 웜톤 or 뉴트럴",
-  "eyeShape": "쌍꺼풀 or 무쌍 or 속쌍 or 두꺼운쌍꺼풀",
+  "eyeShape": "쌍꺼풀 | 아웃라인 쌍꺼풀 | 속쌍 | 무쌍",
   "eyeTail": "올라간 눈꼬리 or 내려간 눈꼬리 or 수평",
   "lipFullness": "얇은 편 or 보통 or 도톰한 편",
   "skinTone": "매우밝음 or 밝음 or 중간 or 어두운편",

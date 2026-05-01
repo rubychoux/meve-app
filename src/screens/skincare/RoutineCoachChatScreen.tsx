@@ -23,6 +23,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../types';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
+import { getEventConfig } from '../../constants/eventConfig';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'RoutineCoachChat'>;
 
@@ -44,18 +45,25 @@ const SUGGESTED_QUESTIONS = [
   '지금 루틴 괜찮나요?',
 ];
 
-function buildSystemPrompt(profileContext: string) {
-  return `You are meve's friendly AI skincare coach.
-Speak in warm Korean 해요체. Be concise (2-4 sentences per response).
+function buildSystemPrompt(profileContext: string, eventType: string | null) {
+  const eventConfig = getEventConfig(eventType);
+  const toneLine = eventConfig
+    ? `말투 지시 (이벤트별 톤): ${eventConfig.coachTone}`
+    : '';
+  return `You are meve's AI skincare coach speaking in Korean 해요체.
+Be concise (2-4 sentences per response).
+${toneLine}
 
+사용자 프로필:
 ${profileContext}
 
-Always personalize advice to their profile. Never diagnose medically.`;
+Personalize to their profile and event. Never diagnose medically.`;
 }
 
 export function RoutineCoachChatScreen() {
   const navigation = useNavigation<Nav>();
   const getProfileContext = useBeautyProfile((s) => s.getProfileContext);
+  const profileEventType = useBeautyProfile((s) => s.eventType);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -124,7 +132,7 @@ export function RoutineCoachChatScreen() {
     setSending(true);
 
     try {
-      const systemPrompt = buildSystemPrompt(getProfileContext());
+      const systemPrompt = buildSystemPrompt(getProfileContext(), profileEventType);
       const gptMessages = [
         { role: 'system', content: systemPrompt },
         ...nextHistory.map((m) => ({ role: m.role, content: m.content })),

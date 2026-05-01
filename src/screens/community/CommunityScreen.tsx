@@ -186,6 +186,21 @@ export function CommunityScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [displayName, setDisplayName] = useState<string>('회원');
+
+  // Display name for the Beauty Report card hero text.
+  const fetchDisplayName = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('display_name')
+        .eq('id', user.id)
+        .single();
+      if (data?.display_name) setDisplayName(data.display_name);
+    } catch {}
+  }, []);
 
   // ── Fetch posts ──────────────────────────────────────────────────────────
   const fetchPosts = useCallback(async () => {
@@ -347,7 +362,8 @@ export function CommunityScreen() {
     useCallback(() => {
       storeLoadProfile();
       fetchUnreadCount();
-    }, [storeLoadProfile, fetchUnreadCount])
+      fetchDisplayName();
+    }, [storeLoadProfile, fetchUnreadCount, fetchDisplayName])
   );
 
   useEffect(() => {
@@ -477,14 +493,14 @@ export function CommunityScreen() {
   const renderHeroCard = () => {
     if (!profileLoaded) {
       return (
-        <View style={styles.heroCard}>
+        <View style={styles.heroCardEmpty}>
           <ActivityIndicator color={PINK} />
         </View>
       );
     }
     if (!hasProfile) {
       return (
-        <View style={styles.heroCard}>
+        <View style={styles.heroCardEmpty}>
           <Text style={styles.heroEmptyText}>
             SKIN · LOOK 탭에서 진단받으면{'\n'}나와 딱 맞는 피드를 보여드려요 ✨
           </Text>
@@ -504,53 +520,80 @@ export function CommunityScreen() {
       );
     }
     return (
-      <View style={styles.heroCard}>
-        <Text style={styles.heroTitle}>내 뷰티 리포트 ✨</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.heroPillRow}
-        >
+      <LinearGradient
+        colors={[
+          'rgba(196,168,232,0.35)',
+          'rgba(249,196,216,0.35)',
+          'rgba(176,210,240,0.2)',
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.beautyReportCard}
+      >
+        <Text style={styles.beautyReportLabel}>내 뷰티 리포트 ✨</Text>
+        <Text style={styles.beautyReportName}>{displayName}님의 시그니처</Text>
+
+        <View style={styles.beautyReportPills}>
           {profile.skinScore != null && (
-            <View style={[styles.heroPill, { backgroundColor: TAG_BLUE_BG }]}>
-              <Text style={[styles.heroPillText, { color: TAG_BLUE }]}>
+            <View
+              style={[
+                styles.reportPill,
+                { backgroundColor: 'rgba(91,163,217,0.15)' },
+              ]}
+            >
+              <Text style={[styles.reportPillText, { color: '#5BA3D9' }]}>
                 스킨 {profile.skinScore}점
               </Text>
             </View>
           )}
           {isValidValue(profile.personal_color) && (
-            <View style={[styles.heroPill, { backgroundColor: TAG_LAVENDER_BG }]}>
-              <Text style={[styles.heroPillText, { color: TAG_LAVENDER }]}>
+            <View
+              style={[
+                styles.reportPill,
+                { backgroundColor: 'rgba(155,89,182,0.12)' },
+              ]}
+            >
+              <Text style={[styles.reportPillText, { color: '#9B59B6' }]}>
                 {profile.personal_color}
               </Text>
             </View>
           )}
           {isValidValue(profile.vibe) && (
-            <View style={[styles.heroPill, { backgroundColor: TAG_PINK_BG }]}>
-              <Text style={[styles.heroPillText, { color: TAG_PINK }]}>
+            <View
+              style={[
+                styles.reportPill,
+                { backgroundColor: 'rgba(255,107,157,0.12)' },
+              ]}
+            >
+              <Text style={[styles.reportPillText, { color: '#FF6B9D' }]}>
                 {profile.vibe}
               </Text>
             </View>
           )}
           {isValidValue(profile.event_type) && (
-            <View style={[styles.heroPill, { backgroundColor: TAG_PINK_BG }]}>
-              <Text style={[styles.heroPillText, { color: TAG_PINK }]}>
+            <View
+              style={[
+                styles.reportPill,
+                { backgroundColor: 'rgba(255,107,157,0.12)' },
+              ]}
+            >
+              <Text style={[styles.reportPillText, { color: '#FF6B9D' }]}>
                 {EVENT_EMOJI[profile.event_type] ?? '✨'}{' '}
-                {profile.dday_count != null
-                  ? `D-${profile.dday_count}`
-                  : EVENT_LABEL[profile.event_type] ?? profile.event_type}
+                {EVENT_LABEL[profile.event_type] ?? profile.event_type}
+                {profile.dday_count != null ? ` D-${profile.dday_count}` : ''}
               </Text>
             </View>
           )}
-        </ScrollView>
+        </View>
+
         {similarCount != null && similarCount > 0 && (
           <TouchableOpacity onPress={() => setFeedTab('mine')} activeOpacity={0.75}>
-            <Text style={styles.heroFooter}>
+            <Text style={styles.similarUsersText}>
               나와 비슷한 {similarCount}명이 활동 중이에요 →
             </Text>
           </TouchableOpacity>
         )}
-      </View>
+      </LinearGradient>
     );
   };
 
@@ -628,7 +671,12 @@ export function CommunityScreen() {
       </View>
 
       <View style={styles.headerRow}>
-        <Text style={styles.title}>eve</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>eve</Text>
+          <Text style={styles.headerSubtitle}>
+            비슷한 뷰티 DNA를 가진 친구들의 이야기
+          </Text>
+        </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity
             onPress={() => navigation.navigate('Notifications')}
@@ -650,20 +698,18 @@ export function CommunityScreen() {
             onPress={() => navigation.navigate('GlamSyncList')}
             activeOpacity={0.75}
           >
-            <View style={[styles.iconBtn, styles.iconBtnGlam]}>
-              <Ionicons name="people" size={20} color={TAG_PINK} />
+            <View style={[styles.iconBtnRound, styles.iconBtnGlamRound]}>
+              <Ionicons name="people" size={20} color="#FFFFFF" />
             </View>
-            <Text style={[styles.iconBtnLabel, { color: TAG_PINK }]}>글램</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconBtnWrap}
             onPress={() => navigation.navigate('LookPollList')}
             activeOpacity={0.75}
           >
-            <View style={[styles.iconBtn, styles.iconBtnPoll]}>
-              <Ionicons name="thumbs-up" size={18} color={TAG_BLUE} />
+            <View style={[styles.iconBtnRound, styles.iconBtnPollRound]}>
+              <Ionicons name="thumbs-up" size={18} color="#FFFFFF" />
             </View>
-            <Text style={[styles.iconBtnLabel, { color: TAG_BLUE }]}>투표</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -671,44 +717,34 @@ export function CommunityScreen() {
       {renderHeroCard()}
 
       {/* Feed tabs */}
-      <View style={styles.tabRow}>
+      <View style={styles.feedTabContainer}>
         <TouchableOpacity
+          style={[styles.feedTab, feedTab === 'mine' && styles.feedTabActive]}
           onPress={() => setFeedTab('mine')}
           activeOpacity={0.8}
         >
-          {feedTab === 'mine' ? (
-            <LinearGradient
-              colors={MEVE_GRADIENT_SIMPLE.colors}
-              start={MEVE_GRADIENT_SIMPLE.start}
-              end={MEVE_GRADIENT_SIMPLE.end}
-              style={styles.tab}
-            >
-              <Text style={styles.tabTextActive}>내 핏 ✨</Text>
-            </LinearGradient>
-          ) : (
-            <View style={styles.tab}>
-              <Text style={styles.tabText}>내 핏 ✨</Text>
-            </View>
-          )}
+          <Text
+            style={[
+              styles.feedTabText,
+              feedTab === 'mine' && styles.feedTabTextActive,
+            ]}
+          >
+            내 핏 ✨
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
+          style={[styles.feedTab, feedTab === 'all' && styles.feedTabActive]}
           onPress={() => setFeedTab('all')}
           activeOpacity={0.8}
         >
-          {feedTab === 'all' ? (
-            <LinearGradient
-              colors={MEVE_GRADIENT_SIMPLE.colors}
-              start={MEVE_GRADIENT_SIMPLE.start}
-              end={MEVE_GRADIENT_SIMPLE.end}
-              style={styles.tab}
-            >
-              <Text style={styles.tabTextActive}>전체</Text>
-            </LinearGradient>
-          ) : (
-            <View style={styles.tab}>
-              <Text style={styles.tabText}>전체</Text>
-            </View>
-          )}
+          <Text
+            style={[
+              styles.feedTabText,
+              feedTab === 'all' && styles.feedTabTextActive,
+            ]}
+          >
+            전체
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -722,13 +758,10 @@ export function CommunityScreen() {
             contentContainerStyle={styles.myFitPillRow}
           >
             {myFitPills.map((p) => (
-              <View
-                key={p.key}
-                style={[styles.myFitPill, { backgroundColor: p.bg, borderColor: p.color }]}
-              >
-                <Text style={[styles.myFitPillText, { color: p.color }]}>{p.label}</Text>
+              <View key={p.key} style={styles.myFitPill}>
+                <Text style={styles.myFitPillText}>{p.label}</Text>
                 <TouchableOpacity onPress={() => removeAutoKey(p.key)} hitSlop={6}>
-                  <Ionicons name="close" size={12} color={p.color} />
+                  <Ionicons name="close" size={12} color="#FF6B9D" />
                 </TouchableOpacity>
               </View>
             ))}
@@ -935,12 +968,12 @@ export function CommunityScreen() {
         activeOpacity={0.85}
       >
         <LinearGradient
-          colors={['#F9C4D8', '#C4B8E8', '#B8D4F0']}
+          colors={['#D4B8E8', '#FF6B9D']}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={styles.fab}
         >
-          <Ionicons name="create" size={22} color="#fff" />
+          <Ionicons name="pencil" size={22} color="#FFFFFF" />
         </LinearGradient>
       </TouchableOpacity>
     </SafeAreaView>
@@ -1086,7 +1119,7 @@ function PostCard({ post, onToggleLike, onOpen, onShare }: PostCardProps) {
 // ─── Styles ───────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FDF8FA' },
   listContent: { paddingBottom: 100 },
 
   topBar: { paddingHorizontal: 20, paddingTop: 4 },
@@ -1101,13 +1134,19 @@ const styles = StyleSheet.create({
 
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 20,
     paddingTop: 6,
-    paddingBottom: 12,
+    paddingBottom: 14,
+    gap: 8,
   },
-  title: { flex: 1, fontSize: 18, fontWeight: '800', color: '#1A1A2E' },
-  headerIcons: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  title: { fontSize: 18, fontWeight: '800', color: '#1A1A2E' },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#8A8A9A',
+    marginTop: 2,
+  },
+  headerIcons: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   bellBtn: {
     position: 'relative',
     marginRight: 8,
@@ -1131,43 +1170,69 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-  iconBtnWrap: { alignItems: 'center', gap: 2 },
-  iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F5F5F5',
+  iconBtnWrap: { alignItems: 'center', justifyContent: 'center' },
+  iconBtnRound: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconBtnGlam: { backgroundColor: TAG_PINK_BG },
-  iconBtnPoll: { backgroundColor: TAG_BLUE_BG },
-  iconBtnLabel: { fontSize: 10, fontWeight: '700' },
+  iconBtnGlamRound: { backgroundColor: '#FFB6D0' },
+  iconBtnPollRound: { backgroundColor: '#B8D8F0' },
 
-  // Hero card — MyPage aesthetic
-  heroCard: {
-    marginHorizontal: 16,
-    marginTop: 2,
-    marginBottom: 14,
+  // Beauty Report — gradient hero card
+  beautyReportCard: {
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
+  beautyReportLabel: {
+    fontSize: 12,
+    color: '#8A8A9A',
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+  beautyReportName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1A1A2E',
+    marginBottom: 12,
+  },
+  beautyReportPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  reportPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 50,
+  },
+  reportPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  similarUsersText: {
+    fontSize: 12,
+    color: '#8A8A9A',
+  },
+  // Empty / loading hero (no profile yet)
+  heroCardEmpty: {
+    marginHorizontal: 20,
+    marginBottom: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 16,
-    shadowColor: '#B0B0B0',
+    padding: 18,
+    shadowColor: '#E0D0E8',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.10,
     shadowRadius: 12,
-    elevation: 3,
+    elevation: 2,
     gap: 10,
   },
-  heroTitle: { fontSize: 13, fontWeight: '800', color: '#1A1A2E', letterSpacing: 0.3 },
-  heroPillRow: { flexDirection: 'row', gap: 6 },
-  heroPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 50,
-  },
-  heroPillText: { fontSize: 12, fontWeight: '700' },
-  heroFooter: { fontSize: 12, color: '#8A8A9A', fontWeight: '600', marginTop: 2 },
   heroEmptyText: {
     fontSize: 13,
     color: '#1A1A2E',
@@ -1189,44 +1254,55 @@ const styles = StyleSheet.create({
   },
   heroEmptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 
-  // Feed tabs
-  tabRow: {
+  // Feed tabs (Claude Design pill)
+  feedTabContainer: {
     flexDirection: 'row',
     gap: 8,
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 10,
+    marginHorizontal: 20,
+    marginBottom: 12,
   },
-  tab: {
-    paddingHorizontal: 18,
+  feedTab: {
+    paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 50,
-    backgroundColor: '#fff',
-    borderWidth: 1,
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
     borderColor: '#E0E0E0',
   },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#8A8A9A' },
-  tabTextActive: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
+  feedTabActive: {
+    backgroundColor: '#FF6B9D',
+    borderColor: '#FF6B9D',
+  },
+  feedTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8A8A9A',
+  },
+  feedTabTextActive: {
+    color: '#FFFFFF',
+  },
 
-  // 내 핏 active pills
+  // 내 핏 active pills (Claude Design)
   myFitRow: {
     paddingHorizontal: 20,
     paddingTop: 2,
-    paddingBottom: 10,
+    paddingBottom: 12,
     gap: 4,
   },
-  myFitLabel: { fontSize: 11, color: '#8A8A9A', fontWeight: '700' },
+  myFitLabel: { fontSize: 12, color: '#8A8A9A', fontWeight: '500' },
   myFitPillRow: { flexDirection: 'row', gap: 6 },
   myFitPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 50,
-    borderWidth: 1,
+    borderWidth: 1.5,
+    borderColor: '#FF6B9D',
+    backgroundColor: 'rgba(255,107,157,0.08)',
   },
-  myFitPillText: { fontSize: 11, fontWeight: '700' },
+  myFitPillText: { fontSize: 12, color: '#FF6B9D', fontWeight: '500' },
 
   // Manual filters
   filterRow: {
@@ -1248,23 +1324,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 50,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    marginRight: 6,
   },
-  filterTypeText: { fontSize: 12, color: '#8A8A9A' },
+  filterTypeText: { fontSize: 13, color: '#4A4A5A', fontWeight: '500' },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 50,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  chipText: { fontSize: 12, color: '#8A8A9A' },
+  chipText: { fontSize: 13, color: '#4A4A5A', fontWeight: '500' },
 
   // Empty
   emptyWrap: {
@@ -1298,42 +1375,42 @@ const styles = StyleSheet.create({
   },
   emptyCtaText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
-  // Post card — MyPage aesthetic
+  // Post card — Claude Design aesthetic
   postCard: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginBottom: 10,
+    backgroundColor: 'rgba(255,255,255,0.95)',
     borderRadius: 20,
     padding: 16,
-    shadowColor: '#B0B0B0',
+    shadowColor: '#E0D0E8',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
+    shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 3,
     gap: 10,
   },
   postHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: TAG_PINK_BG,
     borderWidth: 1.5,
     borderColor: '#F9C4D8',
   },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { color: TAG_PINK, fontWeight: '800', fontSize: 14 },
-  postName: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
+  avatarInitial: { color: TAG_PINK, fontWeight: '800', fontSize: 16 },
+  postName: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
   postTime: { fontSize: 12, color: '#8A8A9A', marginTop: 1 },
 
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 50 },
-  tagPink: { backgroundColor: TAG_PINK_BG },
-  tagPinkText: { fontSize: 11, color: TAG_PINK, fontWeight: '600' },
-  tagPurple: { backgroundColor: TAG_LAVENDER_BG },
-  tagPurpleText: { fontSize: 11, color: TAG_LAVENDER, fontWeight: '600' },
-  tagBlue: { backgroundColor: TAG_BLUE_BG },
-  tagBlueText: { fontSize: 11, color: TAG_BLUE, fontWeight: '600' },
+  tagPink: { backgroundColor: 'rgba(255,107,157,0.12)' },
+  tagPinkText: { fontSize: 11, color: '#FF6B9D', fontWeight: '600' },
+  tagPurple: { backgroundColor: 'rgba(155,89,182,0.12)' },
+  tagPurpleText: { fontSize: 11, color: '#9B59B6', fontWeight: '600' },
+  tagBlue: { backgroundColor: 'rgba(91,163,217,0.12)' },
+  tagBlueText: { fontSize: 11, color: '#5BA3D9', fontWeight: '600' },
   tagGray: { backgroundColor: TAG_GRAY_BG },
   tagGrayText: { fontSize: 11, color: TAG_GRAY, fontWeight: '600' },
 

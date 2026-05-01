@@ -352,32 +352,16 @@ export function MyPageScreen() {
 
 // ─── Beauty DNA card ────────────────────────────────────────────────────────
 
-interface PillProps {
-  label: string;
-  color: string;
-  outlined?: boolean;
-}
-
-function Pill({ label, color, outlined }: PillProps) {
-  return (
-    <View
-      style={{
-        paddingHorizontal: 12,
-        paddingVertical: 5,
-        borderRadius: 50,
-        backgroundColor: outlined ? 'transparent' : `${color}20`,
-        borderWidth: outlined ? 1.5 : 1,
-        borderColor: color,
-        marginRight: 6,
-      }}
-    >
-      <Text style={{ fontSize: 12, color, fontWeight: '600' }}>{label}</Text>
-    </View>
-  );
-}
-
 const isValid = (v: string | null | undefined) =>
   !!v && v !== 'unknown' && v.trim() !== '';
+
+// Personal color → palette mapping for the Beauty DNA card swatches.
+const COLOR_PALETTES: Record<string, string[]> = {
+  '봄 웜톤': ['#FFB5A7', '#F8A195', '#E07B6B', '#FFCBA4', '#F4A460', '#DEB887'],
+  '여름 쿨톤': ['#B8D4E8', '#9FC3DC', '#C4B8E0', '#E8B4D0', '#D4A0C0', '#B0C4DE'],
+  '가을 웜톤': ['#C8A882', '#B8956A', '#8B6914', '#CD853F', '#D2691E', '#A0522D'],
+  '겨울 쿨톤': ['#E8E8F0', '#C8C8E0', '#9090C8', '#FF1493', '#DC143C', '#800020'],
+};
 
 function BeautyDnaCard({
   onFaceAnalysis,
@@ -388,58 +372,167 @@ function BeautyDnaCard({
 }) {
   const profile = useBeautyProfile();
   const completion = profile.getCompletionPercentage();
+  const [previousScore, setPreviousScore] = useState<number | null>(null);
+
+  // Load previous scan score for the trend arrow.
+  useEffect(() => {
+    AsyncStorage.getItem('meve_previous_scan_result').then((raw) => {
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.overallScore === 'number') {
+          setPreviousScore(parsed.overallScore);
+        }
+      } catch {}
+    });
+  }, []);
+
+  // Identity sentence pieces.
+  const featureParts: string[] = [];
+  if (isValid(profile.personalColor)) featureParts.push(profile.personalColor!);
+  if (isValid(profile.faceShape)) featureParts.push(profile.faceShape!);
+  if (isValid(profile.eyeType)) featureParts.push(profile.eyeType!);
+  const featureLine = featureParts.length > 0 ? featureParts.join(' / ') : null;
+
+  const skinPart = isValid(profile.skinType) ? `${profile.skinType} 피부` : null;
+  const vibePart = isValid(profile.vibe) ? `${profile.vibe} 추구미` : null;
+  const skinVibeJoined = [skinPart, vibePart].filter(Boolean).join('에 ');
+  const skinVibeLine = skinVibeJoined ? `${skinVibeJoined}예요` : null;
+
+  const hasIdentity = !!featureLine || !!skinVibeLine;
+
+  const palette =
+    isValid(profile.personalColor) && COLOR_PALETTES[profile.personalColor!]
+      ? COLOR_PALETTES[profile.personalColor!]
+      : null;
+
+  const scoreDiff =
+    profile.lastSkinScore != null && previousScore != null
+      ? profile.lastSkinScore - previousScore
+      : null;
+
+  // CTA copy + handler depend on what's missing first.
+  const ctaText = !isValid(profile.personalColor)
+    ? '+ AI 얼굴 분석으로 퍼스널컬러 알아보기 →'
+    : profile.lastSkinScore == null
+      ? '+ 피부 스캔하고 스코어 확인하기 →'
+      : '+ 프로필 완성하기 →';
+  const ctaHandler =
+    !isValid(profile.personalColor) || isValid(profile.personalColor)
+      ? onFaceAnalysis
+      : onSkinScan;
+  // Above keeps onFaceAnalysis for personalColor missing case AND default;
+  // route the "피부 스캔" CTA to onSkinScan for correct destination:
+  const skinScanCta =
+    isValid(profile.personalColor) && profile.lastSkinScore == null;
 
   return (
     <View style={styles.dnaCard}>
-      <Text style={styles.dnaTitle}>내 뷰티 DNA ✨</Text>
+      {/* Header */}
+      <View style={styles.dnaHeader}>
+        <Text style={styles.dnaTitle}>내 뷰티 DNA ✨</Text>
+        <TouchableOpacity onPress={onFaceAnalysis} activeOpacity={0.75}>
+          <Text style={styles.dnaEditBtn}>편집 →</Text>
+        </TouchableOpacity>
+      </View>
 
-      <View style={styles.completionRow}>
-        <Text style={styles.completionText}>프로필 완성도 {completion}%</Text>
+      {/* Identity sentence */}
+      {hasIdentity ? (
+        <View style={styles.identitySection}>
+          {featureLine && (
+            <Text style={styles.identityFeature}>{featureLine}</Text>
+          )}
+          {skinVibeLine && (
+            <Text style={styles.identitySkinVibe}>{skinVibeLine}</Text>
+          )}
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={styles.identityEmpty}
+          onPress={onFaceAnalysis}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.identityEmptyText}>
+            AI 얼굴 분석으로 내 뷰티 정체성을 알아봐요 →
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Personal color palette swatches */}
+      {palette && (
+        <View style={styles.paletteSection}>
+          <Text style={styles.paletteLabel}>
+            {profile.personalColor} 컬러 팔레트
+          </Text>
+          <View style={styles.swatchRow}>
+            {palette.map((color, i) => (
+              <View
+                key={`${color}-${i}`}
+                style={[styles.swatch, { backgroundColor: color }]}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Skin concerns */}
+      {profile.skinConcerns && profile.skinConcerns.length > 0 && (
+        <View style={styles.concernSection}>
+          <Text style={styles.concernLabel}>피부 고민</Text>
+          <View style={styles.concernPills}>
+            {profile.skinConcerns.map((concern, i) => (
+              <View key={`${concern}-${i}`} style={styles.concernPill}>
+                <Text style={styles.concernPillText}>{concern}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Skin score with trend */}
+      {profile.lastSkinScore != null && (
+        <View style={styles.scoreRow}>
+          <Text style={styles.scoreLabel}>스킨 스코어</Text>
+          <View style={styles.scoreRight}>
+            <Text style={styles.scoreValue}>{profile.lastSkinScore}점</Text>
+            {scoreDiff !== null && scoreDiff !== 0 && (
+              <Text
+                style={[
+                  styles.scoreDiff,
+                  { color: scoreDiff > 0 ? '#7CB798' : '#FF6B6B' },
+                ]}
+              >
+                {scoreDiff > 0 ? ' ↑' : ' ↓'}
+                {Math.abs(scoreDiff)}
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Completion bar */}
+      <View style={styles.completionSection}>
+        <View style={styles.completionRow}>
+          <Text style={styles.completionLabel}>
+            프로필 완성도 {completion}%
+          </Text>
+        </View>
         <View style={styles.completionBar}>
-          <View style={[styles.completionFill, { width: `${completion}%` }]} />
+          <View
+            style={[styles.completionFill, { width: `${completion}%` }]}
+          />
         </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.dnaPillRow}
-      >
-        {isValid(profile.skinType) && (
-          <Pill label={profile.skinType!} color="#5BA3D9" />
-        )}
-        {isValid(profile.personalColor) && (
-          <Pill label={profile.personalColor!} color="#9B59B6" />
-        )}
-        {isValid(profile.vibe) && (
-          <Pill label={profile.vibe!} color="#FF6B9D" />
-        )}
-        {isValid(profile.faceShape) && (
-          <Pill label={profile.faceShape!} color="#8A8A9A" />
-        )}
-        {!isValid(profile.personalColor) && (
-          <TouchableOpacity onPress={onFaceAnalysis} activeOpacity={0.75}>
-            <View style={styles.ctaPill}>
-              <Text style={styles.ctaPillText}>+ 얼굴 분석하기</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-        {!isValid(profile.skinType) && (
-          <TouchableOpacity onPress={onSkinScan} activeOpacity={0.75}>
-            <View style={styles.ctaPill}>
-              <Text style={styles.ctaPillText}>+ 피부 스캔하기</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-      </ScrollView>
-
-      {profile.lastSkinScore != null && (
-        <Text style={styles.dnaScoreText}>
-          최근 스킨 스코어:{' '}
-          <Text style={{ color: '#5BA3D9', fontWeight: '700' }}>
-            {profile.lastSkinScore}점
-          </Text>
-        </Text>
+      {/* CTA if incomplete */}
+      {completion < 100 && (
+        <TouchableOpacity
+          style={styles.dnaCta}
+          onPress={skinScanCta ? onSkinScan : ctaHandler}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.dnaCtaText}>{ctaText}</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -510,67 +603,173 @@ const styles = StyleSheet.create({
 
   // Beauty DNA card
   dnaCard: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     borderRadius: 20,
-    padding: 16,
-    marginHorizontal: 16,
+    padding: 20,
+    marginHorizontal: 20,
     marginBottom: 16,
-    shadowColor: '#B0B0B0',
+    shadowColor: '#D0B0D8',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.15,
     shadowRadius: 12,
-    elevation: 3,
-    gap: 10,
+    elevation: 4,
+  },
+  dnaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   dnaTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: '#1A1A2E',
   },
-  completionRow: {
+  dnaEditBtn: {
+    fontSize: 13,
+    color: '#FF6B9D',
+    fontWeight: '500',
+  },
+
+  identitySection: {
+    marginBottom: 14,
+  },
+  identityFeature: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1A2E',
+    marginBottom: 2,
+  },
+  identitySkinVibe: {
+    fontSize: 14,
+    color: '#5A5A7A',
+    fontWeight: '400',
+  },
+  identityEmpty: {
+    backgroundColor: '#FFF0F5',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#FFC4D6',
+    borderStyle: 'dashed',
+  },
+  identityEmptyText: {
+    fontSize: 13,
+    color: '#FF6B9D',
+    fontWeight: '500',
+  },
+
+  paletteSection: {
+    marginBottom: 14,
+  },
+  paletteLabel: {
+    fontSize: 11,
+    color: '#8A8A9A',
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  swatchRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  swatch: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+  },
+
+  concernSection: {
+    marginBottom: 12,
+  },
+  concernLabel: {
+    fontSize: 11,
+    color: '#8A8A9A',
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  concernPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  concernPill: {
+    backgroundColor: '#E8F4FD',
+    borderRadius: 50,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  concernPillText: {
+    fontSize: 12,
+    color: '#5BA3D9',
+    fontWeight: '500',
+  },
+
+  scoreRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F5F5F5',
+  },
+  scoreLabel: {
+    fontSize: 13,
+    color: '#8A8A9A',
+    fontWeight: '500',
+  },
+  scoreRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  completionText: {
+  scoreValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#5BA3D9',
+  },
+  scoreDiff: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  completionSection: {
+    marginBottom: 10,
+  },
+  completionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  completionLabel: {
     fontSize: 12,
     color: '#8A8A9A',
-    fontWeight: '600',
   },
   completionBar: {
     height: 6,
     borderRadius: 3,
     backgroundColor: '#F0F0F0',
-    flex: 1,
-    overflow: 'hidden',
   },
   completionFill: {
     height: 6,
     borderRadius: 3,
     backgroundColor: '#FF6B9D',
   },
-  dnaPillRow: {
-    flexDirection: 'row',
-    paddingVertical: 2,
-    alignItems: 'center',
+
+  dnaCta: {
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F5F5F5',
   },
-  ctaPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 50,
-    borderWidth: 1.5,
-    borderColor: '#FF6B9D',
-    borderStyle: 'dashed',
-    marginRight: 6,
-  },
-  ctaPillText: {
+  dnaCtaText: {
     fontSize: 12,
     color: '#FF6B9D',
-    fontWeight: '600',
-  },
-  dnaScoreText: {
-    fontSize: 12,
-    color: '#1A1A2E',
+    fontWeight: '500',
   },
 
   // Plan card
