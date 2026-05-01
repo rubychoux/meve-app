@@ -17,7 +17,6 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Linking } from 'react-native';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
 import { useAuthStore } from '../../store';
