@@ -17,6 +17,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { EventStackParamList } from '../../types';
 import { EVENT_CONFIG, EventKey } from '../../constants/events';
 import { useAuthStore } from '../../store';
+import { useBeautyProfile } from '../../stores/beautyProfileStore';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 
 type Nav = NativeStackNavigationProp<EventStackParamList, 'EventSetup'>;
@@ -34,6 +35,7 @@ export function EventSetupScreen() {
 
   const config = EVENT_CONFIG[eventType as EventKey];
   const { setEvent } = useAuthStore();
+  const updateProfile = useBeautyProfile((s) => s.updateProfile);
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showPicker, setShowPicker] = useState(false);
@@ -54,6 +56,10 @@ export function EventSetupScreen() {
         ['meve_care_direction', JSON.stringify(directions)],
       ]);
     } catch {}
+
+    // MEVE — push event into beautyProfileStore so all subscribed screens
+    // (Home, Skin, Look, eve, DdayPlan) re-render immediately.
+    await updateProfile({ eventType, eventDate: dateStr });
 
     setEvent(eventType, dateStr, directions);
     // Dismiss entire modal stack (EventStackNavigator) back to MainTabs

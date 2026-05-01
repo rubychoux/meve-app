@@ -17,7 +17,7 @@ const logo = require('../../../assets/images/meve-logo.png');
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { BubbleIcon } from '../../components/ui/BubbleIcon';
-import { MEVE_GRADIENT } from '../../constants/theme';
+import { MEVE_GRADIENT, MEVE_GRADIENT_SIMPLE } from '../../constants/theme';
 
 if (
   Platform.OS === 'android' &&
@@ -43,8 +43,11 @@ import { CompositeNavigationProp } from '@react-navigation/native';
 import { MainTabParamList, MainStackParamList } from '../../types';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from '../../services/supabase';
-import { useAuthStore } from '../../store';
+import { useBeautyProfile } from '../../stores/beautyProfileStore';
 import { EVENT_CONFIG, EventKey } from '../../constants/events';
+import {
+  getEventConfig as getEventThemeConfig,
+} from '../../constants/eventConfig';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Home'>,
@@ -127,7 +130,9 @@ const LOOK_TIPS = [
 
 export function HomeScreen() {
   const navigation = useNavigation<Nav>();
-  const { eventType, eventDate, setEvent } = useAuthStore();
+  // MEVE — event source of truth: beautyProfileStore (reactive across screens)
+  const eventType = useBeautyProfile((s) => s.eventType);
+  const eventDate = useBeautyProfile((s) => s.eventDate);
   const { width } = useWindowDimensions();
 
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -138,6 +143,22 @@ export function HomeScreen() {
   const [vibe, setVibe] = useState<string | null>(null);
   const [personalColor, setPersonalColor] = useState<string | null>(null);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
+
+  // MEVE-202 — first-scan banner state
+  const lastSkinScore = useBeautyProfile((s) => s.lastSkinScore);
+  const [scanBannerDismissed, setScanBannerDismissed] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem('meve_scan_banner_dismissed').then((v) => {
+      if (v === 'true') setScanBannerDismissed(true);
+    });
+  }, []);
+  const showFirstScanBanner = lastSkinScore == null && !scanBannerDismissed;
+  const dismissScanBanner = async () => {
+    setScanBannerDismissed(true);
+    try {
+      await AsyncStorage.setItem('meve_scan_banner_dismissed', 'true');
+    } catch {}
+  };
 
   // Calendar state
   const now = new Date();
@@ -150,7 +171,6 @@ export function HomeScreen() {
     loadProfile();
     loadScans();
     loadRoutine();
-    loadEventFromStorage();
     loadLookPrefs();
     loadCalendarExpanded();
 
@@ -264,18 +284,6 @@ export function HomeScreen() {
     } catch {}
   };
 
-  const loadEventFromStorage = async () => {
-    if (eventType) return;
-    try {
-      const [[, storedType], [, storedDate], [, storedDirections]] =
-        await AsyncStorage.multiGet(['meve_event_type', 'meve_event_date', 'meve_care_direction']);
-      if (storedType) {
-        const directions = storedDirections ? JSON.parse(storedDirections) : [];
-        setEvent(storedType, storedDate ?? '', directions);
-      }
-    } catch {}
-  };
-
   const toggleRoutine = async (type: 'am' | 'pm') => {
     const next = { ...routine, [type]: !routine[type] };
     setRoutine(next);
@@ -292,6 +300,8 @@ export function HomeScreen() {
 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const eventConfig = eventType ? EVENT_CONFIG[eventType as EventKey] : null;
+  // MEVE-244 — event-specific theme + plan + tip from EVENT_CONFIG (eventConfig.ts)
+  const eventTheme = getEventThemeConfig(eventType);
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const ddayCount = eventDate
@@ -396,16 +406,24 @@ export function HomeScreen() {
               {eventConfig && ddayCount != null ? (
                 <>
                   <TouchableOpacity
-                    style={styles.ddayPillSet}
+                    style={[
+                      styles.ddayPillSet,
+                      eventTheme && {
+                        backgroundColor: eventTheme.theme.badgeBackground,
+                      },
+                    ]}
                     onPress={() => navigation.navigate('EventFlow')}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.ddayPillTextSet}>
-                      {eventType === 'wedding' ? '💍' :
-                       eventType === 'date' ? '💕' :
-                       eventType === 'graduation' ? '🎓' :
-                       eventType === 'travel' ? '✈️' : '✨'}{' '}
-                      {eventConfig.label}까지 D-{ddayCount}
+                    <Text
+                      style={[
+                        styles.ddayPillTextSet,
+                        eventTheme && { color: eventTheme.theme.badgeText },
+                      ]}
+                    >
+                      {eventTheme
+                        ? eventTheme.badgeText(ddayCount)
+                        : `${eventConfig.emoji ?? '✨'} ${eventConfig.label}까지 D-${ddayCount}`}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -425,6 +443,23 @@ export function HomeScreen() {
                 </TouchableOpacity>
               )}
             </View>
+            {eventTheme && ddayCount != null && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('DdayPlan')}
+                hitSlop={6}
+                style={styles.planEntryRow}
+                activeOpacity={0.75}
+              >
+                <Text
+                  style={[
+                    styles.planEntryText,
+                    { color: eventTheme.theme.primary },
+                  ]}
+                >
+                  {eventTheme.label} 준비 플랜 보기 →
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.avatarBtn}>
@@ -436,6 +471,39 @@ export function HomeScreen() {
             />
           </View>
         </View>
+
+        {/* ── FIRST SCAN BANNER ───────────────────────────────────────── */}
+        {showFirstScanBanner && (
+          <View style={styles.firstScanBanner}>
+            <TouchableOpacity
+              onPress={dismissScanBanner}
+              hitSlop={10}
+              style={styles.firstScanCloseBtn}
+            >
+              <Ionicons name="close" size={16} color="#8A8A9A" />
+            </TouchableOpacity>
+            <Text style={styles.firstScanTitle}>
+              ✨ AI 피부 스캔으로 내 피부를 분석해봐요
+            </Text>
+            <Text style={styles.firstScanSub}>
+              지금 스캔하면 맞춤 루틴과 메이크업을 추천해드려요
+            </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Skin')}
+              activeOpacity={0.85}
+              style={styles.firstScanCtaShadow}
+            >
+              <LinearGradient
+                colors={MEVE_GRADIENT_SIMPLE.colors}
+                start={MEVE_GRADIENT_SIMPLE.start}
+                end={MEVE_GRADIENT_SIMPLE.end}
+                style={styles.firstScanCta}
+              >
+                <Text style={styles.firstScanCtaText}>지금 스캔하기 →</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* ── CALENDAR (collapsible) ──────────────────────────────────── */}
         <GlassCard style={styles.calendarCardLayout} radius={20} padding={0}>
@@ -843,7 +911,9 @@ export function HomeScreen() {
               오늘의 {tipLabel} 팁
             </Text>
           </View>
-          <Text style={styles.tipBody}>{tipText}</Text>
+          <Text style={styles.tipBody}>
+            {eventTheme ? eventTheme.homeTip : tipText}
+          </Text>
         </GlassCard>
 
         <View style={{ height: 100 }} />
@@ -902,6 +972,14 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: 'wrap',
   },
+  planEntryRow: {
+    paddingTop: 4,
+    paddingBottom: 2,
+  },
+  planEntryText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   ddayPillSet: {
     backgroundColor: '#FFF0F5',
     borderColor: '#FFC4D6',
@@ -948,6 +1026,64 @@ const styles = StyleSheet.create({
   calendarCardLayout: {
     marginHorizontal: 20,
     marginBottom: 16,
+  },
+
+  // First-scan banner (MEVE-202)
+  firstScanBanner: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    paddingTop: 18,
+    borderWidth: 1,
+    borderColor: '#FFE0EC',
+    shadowColor: '#FF6B9D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 2,
+    gap: 6,
+  },
+  firstScanCloseBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 10,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  firstScanTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  firstScanSub: {
+    fontSize: 12,
+    color: '#8A8A9A',
+    lineHeight: 17,
+    marginBottom: 10,
+  },
+  firstScanCtaShadow: {
+    borderRadius: 50,
+    shadowColor: '#FF6B9D',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+    alignSelf: 'flex-start',
+  },
+  firstScanCta: {
+    borderRadius: 50,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  firstScanCtaText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   calFoldHeader: {
     flexDirection: 'row',

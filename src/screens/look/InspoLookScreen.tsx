@@ -20,6 +20,7 @@ import {
   InspoLookResult,
   FaceAnalysisResult,
 } from '../../types';
+import { fetchOpenAIWithTimeout, friendlyAIErrorMessage } from '../../utils/openai';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'InspoLook'>;
 
@@ -106,7 +107,7 @@ User profile:
 Response schema (return ONLY this JSON, no markdown, no other text):
 ${RESPONSE_SCHEMA}`;
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetchOpenAIWithTimeout('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.EXPO_PUBLIC_OPENAI_API_KEY}`,
@@ -143,7 +144,7 @@ Based on their profile (personal color: ${profile.personalColor}, face shape: ${
 return ONLY this JSON structure (set referenceAnalysis.overallVibe = "${keyword}", no markdown, no other text):
 ${RESPONSE_SCHEMA}`;
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetchOpenAIWithTimeout('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.EXPO_PUBLIC_OPENAI_API_KEY}`,
@@ -212,7 +213,10 @@ export function InspoLookScreen() {
         keyword: keyword ?? undefined,
       });
     } catch (e: any) {
-      Alert.alert('분석 실패', e?.message ?? '다시 시도해 주세요.');
+      Alert.alert('분석 실패', friendlyAIErrorMessage(e), [
+        { text: '다시 시도', onPress: () => handleSubmit() },
+        { text: '취소', style: 'cancel' },
+      ]);
     } finally {
       setAnalyzing(false);
     }

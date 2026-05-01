@@ -9,6 +9,8 @@ interface AuthState {
   session: { accessToken: string } | null;
   isLoading: boolean;
   hasCompletedOnboarding: boolean;
+  // MEVE-202 — gate between login and Home for first-time users
+  beautyOnboardingDone: boolean | null;
   skinMode: SkinMode;
 
   // Event setup
@@ -20,6 +22,7 @@ interface AuthState {
   setSession: (session: { accessToken: string } | null) => void;
   setLoading: (val: boolean) => void;
   setOnboardingComplete: () => void;
+  setBeautyOnboardingDone: (done: boolean | null) => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
   setSkinMode: (mode: SkinMode) => void;
   setEvent: (type: string, date: string, directions: string[]) => void;
@@ -32,6 +35,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   session: null,
   isLoading: true,
   hasCompletedOnboarding: false,
+  beautyOnboardingDone: null,
   skinMode: 'everyday',
   eventType: null,
   eventDate: null,
@@ -41,6 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   setSession: (session) => set({ session }),
   setLoading: (isLoading) => set({ isLoading }),
   setOnboardingComplete: () => set({ hasCompletedOnboarding: true }),
+  setBeautyOnboardingDone: (beautyOnboardingDone) => set({ beautyOnboardingDone }),
   updateProfile: (updates) =>
     set((state) => ({
       user: state.user ? { ...state.user, ...updates } : null,
@@ -52,6 +57,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     user: null,
     session: null,
     hasCompletedOnboarding: false,
+    beautyOnboardingDone: null,
     skinMode: 'everyday',
     eventType: null,
     eventDate: null,

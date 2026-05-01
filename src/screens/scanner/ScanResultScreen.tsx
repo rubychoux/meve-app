@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,21 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Linking,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MainStackParamList, SkinZone } from '../../types';
+import { MainStackParamList, ScanAnalysisResult, SkinZone } from '../../types';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
-import { openOliveYoungSearch } from '../../services/affiliate';
+
+interface PreviousScan extends ScanAnalysisResult {
+  date?: string;
+}
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'ScanResult'>;
 type Route = RouteProp<MainStackParamList, 'ScanResult'>;
@@ -51,6 +56,13 @@ function scoreLabel(score: number): string {
   return '주의 필요';
 }
 
+function formatScanDate(iso: string | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getMonth() + 1}.${d.getDate()}`;
+}
+
 export function ScanResultScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
@@ -58,6 +70,45 @@ export function ScanResultScreen() {
 
   const [saved, setSaved] = useState(initialSaved);
   const [saving, setSaving] = useState(false);
+  const [previousScan, setPreviousScan] = useState<PreviousScan | null>(null);
+
+  // Rotate scans: load previous, then promote the existing "last" → "previous"
+  // and save current as "last". Skip rotation when isSaved (re-opening from history).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const previousRaw = await AsyncStorage.getItem('meve_previous_scan_result');
+        if (previousRaw && !cancelled) {
+          try {
+            setPreviousScan(JSON.parse(previousRaw) as PreviousScan);
+          } catch {}
+        }
+
+        if (initialSaved) return;
+
+        const lastRaw = await AsyncStorage.getItem('meve_last_scan_result');
+        if (lastRaw) {
+          await AsyncStorage.setItem('meve_previous_scan_result', lastRaw);
+        }
+        await AsyncStorage.setItem(
+          'meve_last_scan_result',
+          JSON.stringify({ ...result, date: new Date().toISOString() })
+        );
+      } catch (e) {
+        console.warn('[ScanResult] rotate error:', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const currentScore = result.overallScore;
+  const previousScore = previousScan?.overallScore;
+  const trendUp = previousScore != null && currentScore > previousScore;
+  const trendColor = trendUp ? '#7CB798' : '#FF6B6B';
 
   const handleSave = async () => {
     if (saved || saving) return;
@@ -76,6 +127,17 @@ export function ScanResultScreen() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleShare = async () => {
+    const score = result.overallScore ?? 0;
+    const skinType = result.skinType ?? '피부';
+    try {
+      await Share.share({
+        message: `meve AI 피부 스캔 결과 ✨\n\n스킨 스코어: ${score}점\n피부 타입: ${skinType}\n\n나도 meve로 내 피부를 분석해봤어요!\n앱 다운로드 → https://meve.app`,
+        title: 'meve 피부 스캔 결과 공유',
+      });
+    } catch {}
   };
 
   const handleMakeRoutine = async () => {
@@ -99,6 +161,40 @@ export function ScanResultScreen() {
       >
         {/* 헤더 */}
         <Text style={styles.pageTitle}>피부 분석 결과</Text>
+
+        {/* 지난 스캔과 비교 */}
+        {previousScan && previousScore != null && (
+          <View style={styles.comparisonCard}>
+            <Text style={styles.comparisonTitle}>지난 스캔과 비교 📊</Text>
+            <View style={styles.comparisonRow}>
+              <View style={styles.comparisonItem}>
+                <Text style={styles.comparisonLabel}>지난번</Text>
+                <Text style={styles.comparisonScore}>{previousScore}점</Text>
+                <Text style={styles.comparisonDate}>
+                  {formatScanDate(previousScan.date) || '이전'}
+                </Text>
+              </View>
+              <View style={styles.comparisonArrow}>
+                <Ionicons
+                  name={trendUp ? 'trending-up' : 'trending-down'}
+                  size={24}
+                  color={trendColor}
+                />
+                <Text style={[styles.comparisonDiff, { color: trendColor }]}>
+                  {currentScore > previousScore ? '+' : ''}
+                  {currentScore - previousScore}점
+                </Text>
+              </View>
+              <View style={styles.comparisonItem}>
+                <Text style={styles.comparisonLabel}>이번</Text>
+                <Text style={[styles.comparisonScore, { color: '#5BA3D9' }]}>
+                  {currentScore}점
+                </Text>
+                <Text style={styles.comparisonDate}>오늘</Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* 종합 점수 카드 */}
         <View style={styles.scoreCard}>
@@ -198,7 +294,9 @@ export function ScanResultScreen() {
                   </View>
                   <TouchableOpacity
                     onPress={() =>
-                      openOliveYoungSearch(name, { source: 'scan_result_ingredient', item_name: name })
+                      Linking.openURL(
+                        `https://www.oliveyoung.co.kr/store/search/getSearchMain.do?query=${encodeURIComponent(name)}`
+                      )
                     }
                     style={styles.oliveyoungBtn}
                   >
@@ -246,7 +344,7 @@ export function ScanResultScreen() {
           </View>
         )}
 
-        {/* 홍조 / 자극 */}
+        {/* 홍조 / 자극 (legacy) */}
         {result.redness?.detected && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>홍조 / 자극</Text>
@@ -266,46 +364,6 @@ export function ScanResultScreen() {
           </View>
         )}
 
-        {/* 주요 소견 */}
-        {(result.keyFindings?.length ?? 0) > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>주요 소견</Text>
-            <View style={styles.listCard}>
-              {(result.keyFindings ?? []).map((finding, i) => (
-                <View key={i} style={styles.listRow}>
-                  <View style={styles.bullet} />
-                  <Text style={styles.listText}>{finding}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* AI 추천 */}
-        {(result.recommendations?.length ?? 0) > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>AI 추천</Text>
-            <View style={styles.listCard}>
-              {(result.recommendations ?? []).map((rec, i) => (
-                <View key={i} style={styles.recItem}>
-                  <View style={styles.listRow}>
-                    <Text style={styles.recIndex}>{i + 1}</Text>
-                    <Text style={styles.listText}>{rec}</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() =>
-                      openOliveYoungSearch(rec, { source: 'scan_recommendation', item_name: rec })
-                    }
-                    style={styles.oliveyoungBtn}
-                  >
-                    <Text style={styles.oliveyoungText}>올리브영에서 보기 →</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
         {/* 하단 버튼 */}
         <View style={styles.buttons}>
           <TouchableOpacity
@@ -316,6 +374,14 @@ export function ScanResultScreen() {
             <Text style={styles.saveBtnText}>
               {saved ? '저장됐어요 ✓' : saving ? '저장 중...' : '결과 저장하기'}
             </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.shareBtn}
+            onPress={handleShare}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="share-outline" size={16} color="#5BA3D9" />
+            <Text style={styles.shareBtnText}>공유하기</Text>
           </TouchableOpacity>
         </View>
 
@@ -561,6 +627,18 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.success,
   },
   saveBtnText: { ...Typography.cta, color: Colors.surface },
+  shareBtn: {
+    flex: 1,
+    height: 52,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: '#5BA3D9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  shareBtnText: { fontSize: 14, fontWeight: '700', color: '#5BA3D9' },
   routineBtn: {
     backgroundColor: Colors.accent,
     borderRadius: 16,
@@ -576,4 +654,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
   },
+
+  // 지난 스캔 비교
+  comparisonCard: {
+    backgroundColor: '#fff',
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#F0E6EC',
+    gap: Spacing.sm,
+  },
+  comparisonTitle: { fontSize: 13, fontWeight: '700', color: '#2D2D2D' },
+  comparisonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  comparisonItem: { alignItems: 'center', flex: 1, gap: 2 },
+  comparisonLabel: { fontSize: 11, color: '#9A8F97', fontWeight: '600' },
+  comparisonScore: { fontSize: 22, fontWeight: '800', color: '#2D2D2D' },
+  comparisonDate: { fontSize: 11, color: '#9A8F97' },
+  comparisonArrow: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  comparisonDiff: { fontSize: 13, fontWeight: '700' },
 });

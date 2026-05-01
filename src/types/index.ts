@@ -135,6 +135,7 @@ export interface Insight {
 
 export type RootStackParamList = {
   Onboarding: undefined;
+  BeautyOnboarding: undefined;
   Main: undefined;
 };
 
@@ -174,6 +175,10 @@ export type MainStackParamList = {
   InspoLook: undefined;
   InspoLookResult: { result: InspoLookResult; imageUri?: string; keyword?: string };
   InspoLookSaved: undefined;
+  ColorMatch: undefined;
+  TreatmentRecommend: { mode: 'skin' | 'look' };
+  SkinJournal: undefined;
+  DdayPlan: undefined;
   GlamSyncList: undefined;
   GlamSyncCreate: undefined;
   GlamSyncDetail: { syncId: string };
@@ -324,13 +329,20 @@ export interface InspoLookResult {
   summary: string;
 }
 
+// MEVE — Korean eyelid standards (used by FaceAnalysisScreen GPT prompt).
+export type EyeShape = '쌍꺼풀' | '아웃라인 쌍꺼풀' | '속쌍' | '무쌍';
+
 export interface FaceAnalysisResult {
   faceShape: string;
   faceShapeReason?: string;
   personalColor: string;
   personalColorReason?: string;
+  // MEVE-233 — confidence + alternative
+  confidence?: number;
+  alternativeColor?: string | null;
+  alternativeConfidence?: number;
   undertone: string;
-  eyeShape: string;
+  eyeShape: EyeShape;
   eyeTail: string;
   lipFullness: string;
   skinTone: string;

@@ -4,12 +4,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator, Platform } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 import { RootStackParamList } from '../types';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainStackNavigator } from './MainStackNavigator';
+import { BeautyOnboardingScreen } from '../screens/onboarding/BeautyOnboardingScreen';
 import { Colors } from '../constants/theme';
 import { hydratePremiumFromLocalStorage, refreshPremiumFromSupabase } from '../services/premium';
 
@@ -19,7 +21,25 @@ const Stack =
     : createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
-  const { session, isLoading, setSession, setUser, setLoading } = useAuthStore();
+  const {
+    session,
+    isLoading,
+    beautyOnboardingDone,
+    setSession,
+    setLoading,
+    setBeautyOnboardingDone,
+  } = useAuthStore();
+
+  // MEVE-202 — load beauty-onboarding flag whenever the session changes.
+  useEffect(() => {
+    if (!session) {
+      setBeautyOnboardingDone(null);
+      return;
+    }
+    AsyncStorage.getItem('meve_onboarding_done').then((val) => {
+      setBeautyOnboardingDone(val === 'true');
+    });
+  }, [session, setBeautyOnboardingDone]);
 
   useEffect(() => {
     // Listen for auth state changes
@@ -67,15 +87,17 @@ export function RootNavigator() {
     };
   }, []);
 
-  if (isLoading) {
+  const isAuthenticated = !!session;
+  // While we resolve the onboarding flag, treat as loading so we don't flash the wrong screen.
+  const onboardingFlagPending = isAuthenticated && beautyOnboardingDone === null;
+
+  if (isLoading || onboardingFlagPending) {
     return (
       <View style={{ flex: 1, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={Colors.accent} />
       </View>
     );
   }
-
-  const isAuthenticated = !!session;
 
   return (
     <NavigationContainer
@@ -100,6 +122,8 @@ export function RootNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
+        ) : !beautyOnboardingDone ? (
+          <Stack.Screen name="BeautyOnboarding" component={BeautyOnboardingScreen} />
         ) : (
           <Stack.Screen name="Main" component={MainStackNavigator} />
         )}

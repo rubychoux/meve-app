@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+*.png
+로고 1.png
+로고 2.png

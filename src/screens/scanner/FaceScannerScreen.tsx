@@ -6,7 +6,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Animated,
   LayoutChangeEvent,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -18,9 +20,8 @@ import Svg, { Path, Ellipse } from 'react-native-svg';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
 import { MainStackParamList, ScanAnalysisResult } from '../../types';
-import { getMonthlyCount, isPremiumNow } from '../../services/premium';
-import { PremiumUpsellModal } from '../../components/PremiumUpsellModal';
-import { cleanJson } from '../../utils/openai';
+import { cleanJson, fetchOpenAIWithTimeout, friendlyAIErrorMessage } from '../../utils/openai';
+import { useBeautyProfile } from '../../stores/beautyProfileStore';
 import {
   SkinScanGuideModal,
   SKIP_GUIDE_KEY,
@@ -29,6 +30,21 @@ import {
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
 type ScanStep = 'idle' | 'analyzing';
+
+// MEVE-206 — rotating scan-quality tips shown below the oval guide.
+const SCAN_TIPS = [
+  '☀️ 자연광 아래에서 찍으면 더 정확해요',
+  '📏 얼굴이 가이드 안에 꽉 차게 맞춰주세요',
+  '😐 정면을 바라보고 표정을 편하게 해주세요',
+  '💆 앞머리가 이마를 가리지 않게 해주세요',
+  '🚫 플래시나 강한 조명은 피해주세요',
+];
+
+function formatScanDate(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}
 
 const OPENAI_PROMPT = `You are an expert Korean dermatologist analyzing Asian skin. Analyze ONLY what is clearly visible in this photo. Korean skincare standards apply.
 Return ONLY valid JSON (no markdown, no other text):
@@ -57,7 +73,7 @@ Return ONLY valid JSON (no markdown, no other text):
 }`;
 
 const runAnalysis = async (base64String: string): Promise<ScanAnalysisResult> => {
-  const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+  const openaiResponse = await fetchOpenAIWithTimeout('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${process.env.EXPO_PUBLIC_OPENAI_API_KEY}`,
@@ -118,18 +134,67 @@ const runAnalysis = async (base64String: string): Promise<ScanAnalysisResult> =>
 
 export function FaceScannerScreen() {
   const navigation = useNavigation<Nav>();
+  const updateFromSkinScan = useBeautyProfile((s) => s.updateFromSkinScan);
   const [permission, requestPermission] = useCameraPermissions();
   const [step, setStep] = useState<ScanStep>('idle');
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
   const [showGuide, setShowGuide] = useState(false);
+  const [hasPreviousScan, setHasPreviousScan] = useState(false);
+  const [lastScanDate, setLastScanDate] = useState<string | null>(null);
+  const [tipIndex, setTipIndex] = useState(0);
   const cameraRef = useRef<CameraView>(null);
-  const [upsellOpen, setUpsellOpen] = useState(false);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     AsyncStorage.getItem(SKIP_GUIDE_KEY).then((val) => {
       if (val !== 'true') setShowGuide(true);
     });
+    AsyncStorage.getItem('meve_last_scan_date').then((val) => {
+      if (val) {
+        setHasPreviousScan(true);
+        setLastScanDate(val);
+      }
+    });
   }, []);
+
+  // Rotate tips every 3s while idle.
+  useEffect(() => {
+    if (step !== 'idle') return;
+    const interval = setInterval(() => {
+      setTipIndex((prev) => (prev + 1) % SCAN_TIPS.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [step]);
+
+  // Pulse the oval after 5s of inactivity to draw attention.
+  useEffect(() => {
+    if (step !== 'idle') {
+      pulseAnim.stopAnimation();
+      pulseAnim.setValue(1);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.05,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }, 5000);
+    return () => {
+      clearTimeout(timeout);
+      pulseAnim.stopAnimation();
+      pulseAnim.setValue(1);
+    };
+  }, [step, pulseAnim]);
 
   const handleContainerLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -147,33 +212,27 @@ export function FaceScannerScreen() {
 
   const handleCapture = async () => {
     if (step !== 'idle' || !cameraRef.current) return;
-
-    try {
-      const { data: userRes } = await supabase.auth.getUser();
-      const user = userRes.user;
-      if (user && !isPremiumNow()) {
-        const count = await getMonthlyCount('skin_scans', user.id);
-        if (count >= 3) {
-          setUpsellOpen(true);
-          return;
-        }
-      }
-    } catch {}
-
     setStep('analyzing');
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7, base64: true });
       if (!photo.base64) throw new Error('base64 없음');
       const result = await runAnalysis(photo.base64);
+      await updateFromSkinScan(result);
+      try {
+        await AsyncStorage.setItem('meve_last_scan_date', new Date().toISOString());
+      } catch {}
       navigation.navigate('ScanResult', { result });
     } catch (e: any) {
       console.error('[handleCapture] error:', e);
       setStep('idle');
-      Alert.alert('분석 실패', __DEV__ ? (e?.message ?? String(e)) : '다시 시도해 주세요.');
+      Alert.alert('분석 실패', friendlyAIErrorMessage(e), [
+        { text: '다시 시도', onPress: () => handleCapture() },
+        { text: '취소', style: 'cancel' },
+      ]);
     }
   };
 
-  const handleMockCapture = () => {
+  const handleMockCapture = async () => {
     const mockResult: ScanAnalysisResult = {
       overallScore: 72,
       skinType: '복합성',
@@ -197,6 +256,7 @@ export function FaceScannerScreen() {
       },
       summary: '복합성 피부로 T존 관리가 필요한 상태예요. 전반적인 피부 톤은 균일하니까,\n피지 조절 성분을 중심으로 루틴을 짜면 금세 맑아질 거예요. 함께 관리해봐요 💕',
     };
+    await updateFromSkinScan(mockResult);
     navigation.navigate('ScanResult', { result: mockResult });
   };
 
@@ -206,15 +266,25 @@ export function FaceScannerScreen() {
   }
 
   if (!permission.granted) {
+    const permanentlyDenied = !permission.canAskAgain;
     return (
       <SafeAreaView style={styles.permissionContainer}>
         <Ionicons name="camera-outline" size={48} color={Colors.accent} style={{ marginBottom: Spacing.sm }} />
-        <Text style={styles.permissionTitle}>카메라 접근이 필요해요</Text>
-        <Text style={styles.permissionDesc}>
-          AI 피부 진단을 위해 카메라 권한을 허용해 주세요.
+        <Text style={styles.permissionTitle}>
+          {permanentlyDenied ? '카메라를 열 수 없어요' : '카메라 접근이 필요해요'}
         </Text>
-        <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission}>
-          <Text style={styles.permissionBtnText}>권한 허용하기</Text>
+        <Text style={styles.permissionDesc}>
+          {permanentlyDenied
+            ? '카메라를 열 수 없어요. 설정에서 카메라 권한을 확인해주세요 📷'
+            : 'AI 피부 진단을 위해 카메라 권한을 허용해 주세요.'}
+        </Text>
+        <TouchableOpacity
+          style={styles.permissionBtn}
+          onPress={permanentlyDenied ? () => Linking.openSettings() : requestPermission}
+        >
+          <Text style={styles.permissionBtnText}>
+            {permanentlyDenied ? '설정 열기' : '권한 허용하기'}
+          </Text>
         </TouchableOpacity>
         {__DEV__ && (
           <TouchableOpacity style={styles.mockBtn} onPress={handleMockCapture}>
@@ -228,15 +298,6 @@ export function FaceScannerScreen() {
   // ── 카메라 뷰 ─────────────────────────────────────────────────────────────
   return (
     <View style={styles.cameraContainer} onLayout={handleContainerLayout}>
-      <PremiumUpsellModal
-        visible={upsellOpen}
-        onClose={() => setUpsellOpen(false)}
-        onUpgrade={() => {
-          setUpsellOpen(false);
-          navigation.navigate('Paywall', { source: 'face_scan_limit' });
-        }}
-        subtitle="무료 플랜은 AI 피부 스캔을 월 3회까지 이용할 수 있어요."
-      />
       <CameraView
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
@@ -255,6 +316,10 @@ export function FaceScannerScreen() {
 
       {/* 오발 가이드 + 딤 — SVG evenodd cutout, pink ellipse stroke */}
       {width > 0 && height > 0 && (
+        <Animated.View
+          style={[StyleSheet.absoluteFillObject, { transform: [{ scale: pulseAnim }] }]}
+          pointerEvents="none"
+        >
         <Svg
           width={width}
           height={height}
@@ -276,6 +341,24 @@ export function FaceScannerScreen() {
             fill="none"
           />
         </Svg>
+        </Animated.View>
+      )}
+
+      {/* 스캔 가이드 팁 (3초마다 회전) + 마지막 스캔 날짜 */}
+      {step === 'idle' && width > 0 && (
+        <View
+          style={[styles.tipBlock, { top: ovalCy + ovalRy + 16, left: 20, width: width - 40 }]}
+          pointerEvents="none"
+        >
+          <View style={styles.tipContainer}>
+            <Text style={styles.tipText}>{SCAN_TIPS[tipIndex]}</Text>
+          </View>
+          {hasPreviousScan && lastScanDate && (
+            <Text style={styles.lastScanText}>
+              📅 마지막 스캔: {formatScanDate(lastScanDate)}
+            </Text>
+          )}
+        </View>
       )}
 
       {/* 분석 중 오버레이 */}
@@ -414,5 +497,28 @@ const styles = StyleSheet.create({
   mockBtnText: {
     ...Typography.caption,
     color: Colors.surface,
+  },
+  tipBlock: {
+    position: 'absolute',
+    alignItems: 'center',
+    gap: 8,
+    zIndex: 12,
+  },
+  tipContainer: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 0,
+  },
+  tipText: {
+    color: '#fff',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  lastScanText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
+    textAlign: 'center',
   },
 });

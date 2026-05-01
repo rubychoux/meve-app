@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +22,7 @@ import {
   LookRecommendation,
   FaceAnalysisResult,
 } from '../../types';
+import { useBeautyProfile } from '../../stores/beautyProfileStore';
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<MainStackParamList>,
@@ -44,20 +46,10 @@ const DIFFICULTY_COLOR: Record<string, string> = {
   어려움: '#F08080',
 };
 
-async function generateLooks(params: {
-  eventType: string;
-  vibe: string;
-  personalColor: string;
-  faceShape: string;
-  eyeShape: string;
-}): Promise<LookRecommendation[]> {
+async function generateLooks(profileContext: string): Promise<LookRecommendation[]> {
   const prompt = `You are a Korean beauty expert. Generate 3 makeup look recommendations in Korean.
-User profile:
-- Event: ${params.eventType}
-- Vibe (추구미): ${params.vibe}
-- Personal color: ${params.personalColor}
-- Face shape: ${params.faceShape}
-- Eye type: ${params.eyeShape}
+
+${profileContext}
 
 Return ONLY a JSON array with exactly 3 looks:
 [
@@ -101,6 +93,9 @@ Return ONLY the JSON array. No other text.`;
 
 export function TodaysLookScreen() {
   const navigation = useNavigation<Nav>();
+  const getProfileContext = useBeautyProfile((s) => s.getProfileContext);
+  const profileVibe = useBeautyProfile((s) => s.vibe);
+  const profileEventType = useBeautyProfile((s) => s.eventType);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [looks, setLooks] = useState<LookRecommendation[] | null>(null);
@@ -128,26 +123,34 @@ export function TodaysLookScreen() {
     })();
   }, []);
 
-  const canGenerate = !!vibe && !!eventType;
-  const eventLabel = eventType ? EVENT_LABELS[eventType] ?? eventType : '';
+  // Prefer the live store; fall back to AsyncStorage values for screens we
+  // reach before the store has finished hydrating.
+  const effectiveVibe = profileVibe ?? vibe;
+  const effectiveEventType = profileEventType ?? eventType;
+  const canGenerate = !!effectiveVibe && !!effectiveEventType;
+  const eventLabel = effectiveEventType
+    ? EVENT_LABELS[effectiveEventType] ?? effectiveEventType
+    : '';
 
   const handleGenerate = async () => {
     if (!canGenerate || generating) return;
     setGenerating(true);
     try {
-      const result = await generateLooks({
-        eventType: eventLabel,
-        vibe: vibe!,
-        personalColor: personalColor ?? '미정',
-        faceShape: faceAnalysis?.faceShape ?? '미정',
-        eyeShape: faceAnalysis?.eyeShape ?? '미정',
-      });
+      const result = await generateLooks(getProfileContext());
       setLooks(result);
     } catch (e: any) {
       Alert.alert('생성 실패', e?.message ?? '다시 시도해 주세요.');
     } finally {
       setGenerating(false);
     }
+  };
+
+  const handleShareLook = async (look: LookRecommendation) => {
+    try {
+      await Share.share({
+        message: `meve 오늘의 룩 추천 💄\n\n${look.lookName}\n${look.description}\n\nmeve에서 나만의 메이크업 룩을 찾아봐요!\n앱 다운로드 → https://meve.app`,
+      });
+    } catch {}
   };
 
   if (loading) {
@@ -172,7 +175,7 @@ export function TodaysLookScreen() {
         {canGenerate ? (
           <>
             <Text style={styles.hero}>
-              {eventLabel}을 위한 {vibe} 룩 💕
+              {eventLabel}을 위한 {effectiveVibe} 룩 💕
             </Text>
             <Text style={styles.heroSub}>
               AI가 D-day와 추구미에 맞춰 3가지 룩을 추천해드려요.
@@ -222,13 +225,23 @@ export function TodaysLookScreen() {
                       <Text style={styles.colorPillText}>{look.colorKeyword}</Text>
                     </View>
 
-                    <TouchableOpacity
-                      style={styles.followBtn}
-                      onPress={() => navigation.navigate('LookDetail', { look })}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={styles.followBtnText}>따라하기 →</Text>
-                    </TouchableOpacity>
+                    <View style={styles.lookActionsRow}>
+                      <TouchableOpacity
+                        style={styles.followBtn}
+                        onPress={() => navigation.navigate('LookDetail', { look })}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.followBtnText}>따라하기 →</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.shareLookBtn}
+                        onPress={() => handleShareLook(look)}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="share-outline" size={14} color={ACCENT} />
+                        <Text style={styles.shareLookBtnText}>공유</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 ))}
 
@@ -344,15 +357,31 @@ const styles = StyleSheet.create({
   },
   colorPillText: { fontSize: 11, fontWeight: '700', color: '#C44777' },
 
-  followBtn: {
+  lookActionsRow: {
     marginTop: 6,
-    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
+  },
+  followBtn: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     backgroundColor: '#2D2D2D',
     borderRadius: 10,
   },
   followBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  shareLookBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: ACCENT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  shareLookBtnText: { color: ACCENT, fontSize: 12, fontWeight: '700' },
 
   regenBtn: {
     marginTop: 6,

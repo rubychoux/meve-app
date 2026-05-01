@@ -16,6 +16,10 @@ import { LookDetailScreen } from '../screens/look/LookDetailScreen';
 import { InspoLookScreen } from '../screens/look/InspoLookScreen';
 import { InspoLookResultScreen } from '../screens/look/InspoLookResultScreen';
 import { InspoLookSavedScreen } from '../screens/look/InspoLookSavedScreen';
+import { ColorMatchScreen } from '../screens/look/ColorMatchScreen';
+import { TreatmentRecommendScreen } from '../screens/look/TreatmentRecommendScreen';
+import { SkinJournalScreen } from '../screens/skincare/SkinJournalScreen';
+import { DdayPlanScreen } from '../screens/home/DdayPlanScreen';
 import { GlamSyncListScreen } from '../screens/community/GlamSyncListScreen';
 import { GlamSyncCreateScreen } from '../screens/community/GlamSyncCreateScreen';
 import { GlamSyncDetailScreen } from '../screens/community/GlamSyncDetailScreen';
@@ -55,6 +59,10 @@ export function MainStackNavigator() {
       <Stack.Screen name="InspoLook" component={InspoLookScreen} />
       <Stack.Screen name="InspoLookResult" component={InspoLookResultScreen} />
       <Stack.Screen name="InspoLookSaved" component={InspoLookSavedScreen} />
+      <Stack.Screen name="ColorMatch" component={ColorMatchScreen} />
+      <Stack.Screen name="TreatmentRecommend" component={TreatmentRecommendScreen} />
+      <Stack.Screen name="SkinJournal" component={SkinJournalScreen} />
+      <Stack.Screen name="DdayPlan" component={DdayPlanScreen} />
       <Stack.Screen name="GlamSyncList" component={GlamSyncListScreen} />
       <Stack.Screen name="GlamSyncCreate" component={GlamSyncCreateScreen} />
       <Stack.Screen name="GlamSyncDetail" component={GlamSyncDetailScreen} />
