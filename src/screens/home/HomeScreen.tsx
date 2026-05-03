@@ -14,10 +14,9 @@ import {
 } from 'react-native';
 
 const logo = require('../../../assets/images/meve-logo.png');
-import { LinearGradient } from 'expo-linear-gradient';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { BubbleIcon } from '../../components/ui/BubbleIcon';
-import { MEVE_GRADIENT, MEVE_GRADIENT_SIMPLE } from '../../constants/theme';
+import { MEVE_GRADIENT } from '../../constants/theme';
 
 if (
   Platform.OS === 'android' &&
@@ -46,6 +45,10 @@ import { supabase } from '../../services/supabase';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
 import { useMode } from '../../stores/modeStore';
 import { ModeToggle } from '../../components/ui/ModeToggle';
+import {
+  getEventContextText,
+  getEventFocusMessage,
+} from '../../utils/eventLens';
 import { EVENT_CONFIG, EventKey } from '../../constants/events';
 import {
   getEventConfig as getEventThemeConfig,
@@ -578,16 +581,10 @@ JSON으로만 답하세요: { "tip": "..." }`;
   const cellSize = Math.floor((width - 40 - 32) / 7); // width - marginHorizontal*2 - padding*2
 
   // ── Render ──────────────────────────────────────────────────────────────────
+  // MEVE-258 — flat plain background (no LinearGradient).
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <LinearGradient
-        colors={['#FFF7FB', '#F8F2FF', '#F2F7FE']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-        pointerEvents="none"
-      />
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF7FB" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F8" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -597,7 +594,9 @@ JSON으로만 답하세요: { "tip": "..." }`;
         <View style={styles.compactHeader}>
           <View style={styles.compactHeaderMain}>
             <Image source={logo} style={styles.headerLogo} />
-            <Text style={styles.compactSubtitle}>오늘도 빛나는 하루예요 ✨</Text>
+            <Text style={styles.compactSubtitle}>
+              {getEventFocusMessage(eventType, ddayCount)}
+            </Text>
             <Text style={styles.compactName}>
               {displayName ?? '회원'}님
             </Text>
@@ -612,7 +611,7 @@ JSON으로만 답하세요: { "tip": "..." }`;
                         backgroundColor: eventTheme.theme.badgeBackground,
                       },
                     ]}
-                    onPress={() => navigation.navigate('EventFlow')}
+                    onPress={() => navigation.navigate('EventSetting')}
                     activeOpacity={0.8}
                   >
                     <Text
@@ -627,7 +626,7 @@ JSON으로만 답하세요: { "tip": "..." }`;
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => navigation.navigate('EventFlow')}
+                    onPress={() => navigation.navigate('EventSetting')}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
                     <Text style={styles.ddayChangeLink}>변경</Text>
@@ -636,10 +635,10 @@ JSON으로만 답하세요: { "tip": "..." }`;
               ) : (
                 <TouchableOpacity
                   style={styles.ddayPillUnset}
-                  onPress={() => navigation.navigate('EventFlow')}
+                  onPress={() => navigation.navigate('EventSetting')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.ddayPillTextUnset}>이벤트를 설정해요 →</Text>
+                  <Text style={styles.ddayPillTextUnset}>🌟 특별한 날 추가하기</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -660,15 +659,6 @@ JSON으로만 답하세요: { "tip": "..." }`;
                 </Text>
               </TouchableOpacity>
             )}
-          </View>
-
-          <View style={styles.avatarBtn}>
-            <BubbleIcon
-              icon="person"
-              size={44}
-              iconSize={22}
-              colors={MEVE_GRADIENT.colors}
-            />
           </View>
         </View>
 
@@ -704,21 +694,18 @@ JSON으로만 답하세요: { "tip": "..." }`;
               ✨ AI 피부 스캔으로 내 피부를 분석해봐요
             </Text>
             <Text style={styles.firstScanSub}>
-              지금 스캔하면 맞춤 루틴과 메이크업을 추천해드려요
+              {getEventContextText(
+                '피부 분석을 시작해봐요',
+                eventType,
+                ddayCount
+              )}
             </Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('Scan')}
               activeOpacity={0.85}
-              style={styles.firstScanCtaShadow}
+              style={[styles.firstScanCtaShadow, styles.firstScanCta]}
             >
-              <LinearGradient
-                colors={MEVE_GRADIENT_SIMPLE.colors}
-                start={MEVE_GRADIENT_SIMPLE.start}
-                end={MEVE_GRADIENT_SIMPLE.end}
-                style={styles.firstScanCta}
-              >
-                <Text style={styles.firstScanCtaText}>지금 스캔하기 →</Text>
-              </LinearGradient>
+              <Text style={styles.firstScanCtaText}>지금 스캔하기 →</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -798,95 +785,89 @@ JSON으로만 답하세요: { "tip": "..." }`;
         {/* ── SECTION 2: SKIN TODAY (SKIN mode only — full width) ───── */}
         {mode === 'skin' && (
         <>
-        <Text style={styles.sectionTitle}>오늘의 체크인</Text>
-        <View style={styles.dualRow}>
-          {/* SKIN */}
-          <View style={[styles.dualCardLayout, styles.dualCardShadow]}>
-            <LinearGradient
-              colors={['#FBFCFF', '#F2F6FF', '#E5EDFF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.dualCardSurface, { borderColor: '#EBF1FF' }]}
-            >
-              <Image
-                source={require('../../../assets/images/skin-title.png')}
-                style={styles.cardTitleImage}
-                resizeMode="contain"
-              />
-              <View style={styles.dualCheckRow}>
-                <TouchableOpacity
-                  style={styles.dualCheckItem}
-                  onPress={() => toggleRoutine('am')}
-                  activeOpacity={0.75}
-                >
-                  <View style={[styles.dualCheckCircle, routine.am && styles.dualCheckCircleDone]}>
-                    {routine.am && <Ionicons name="checkmark" size={13} color="#fff" />}
-                  </View>
-                  <Text style={styles.dualCheckLabel}>AM</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.dualCheckItem}
-                  onPress={() => toggleRoutine('pm')}
-                  activeOpacity={0.75}
-                >
-                  <View style={[styles.dualCheckCircle, routine.pm && styles.dualCheckCircleDone]}>
-                    {routine.pm && <Ionicons name="checkmark" size={13} color="#fff" />}
-                  </View>
-                  <Text style={styles.dualCheckLabel}>PM</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                onPress={goToFaceScanner}
-                activeOpacity={0.85}
-                style={styles.imageButton}
-              >
-                <Image
-                  source={require('../../../assets/images/btn-skin-scan.png')}
-                  style={styles.skinScanButtonImage}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-
-              {/* MEVE-253 — routine steps preview (next slot's products) */}
-              {(() => {
-                // After AM is checked, surface PM; otherwise surface AM.
-                const stepsToShow = routine.am ? pmRoutineSteps : amRoutineSteps;
-                if (stepsToShow.length > 0) {
-                  const trimmed = stepsToShow.slice(0, 5);
-                  return (
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      style={styles.routineStepsRow}
-                    >
-                      {trimmed.map((step, i) => (
-                        <View key={`${step}-${i}`} style={styles.routineStepWrapper}>
-                          <View style={styles.routineStep}>
-                            <Text style={styles.routineStepText}>{step}</Text>
-                          </View>
-                          {i < trimmed.length - 1 && (
-                            <Text style={styles.routineStepArrow}>→</Text>
-                          )}
-                        </View>
-                      ))}
-                    </ScrollView>
-                  );
-                }
-                return (
-                  <TouchableOpacity
-                    style={styles.noRoutineCta}
-                    onPress={() => navigation.navigate('RoutineBuilder')}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.noRoutineCtaText}>
-                      ✨ AI가 내 맞춤 루틴 만들어줘 →
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })()}
-            </LinearGradient>
+        <Text style={styles.sectionTitle}>
+          {getEventContextText('오늘의 체크인', eventType, ddayCount)}
+        </Text>
+        {/* MEVE-258 — plain white check-in card (no gradient, no glossy PNGs) */}
+        <View style={styles.checkinCard}>
+          <View style={styles.checkinCardHeader}>
+            <Text style={styles.checkinCardMode}>💙 SKIN</Text>
+            <Text style={styles.checkinCardSub}>오늘의 스킨케어</Text>
           </View>
+          <View style={styles.ampmRow}>
+            <TouchableOpacity
+              style={[styles.ampmBtn, routine.am && styles.ampmBtnActive]}
+              onPress={() => toggleRoutine('am')}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.ampmBtnText,
+                  routine.am && styles.ampmBtnTextActive,
+                ]}
+              >
+                {routine.am ? '✓' : '○'} AM
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.ampmBtn, routine.pm && styles.ampmBtnActive]}
+              onPress={() => toggleRoutine('pm')}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.ampmBtnText,
+                  routine.pm && styles.ampmBtnTextActive,
+                ]}
+              >
+                {routine.pm ? '✓' : '○'} PM
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={styles.scanBtn}
+            onPress={goToFaceScanner}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.scanBtnText}>📸 피부 스캔하기</Text>
+          </TouchableOpacity>
 
+          {/* MEVE-253 — routine steps preview (next slot's products) */}
+          {(() => {
+            const stepsToShow = routine.am ? pmRoutineSteps : amRoutineSteps;
+            if (stepsToShow.length > 0) {
+              const trimmed = stepsToShow.slice(0, 5);
+              return (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.routineStepsRow}
+                >
+                  {trimmed.map((step, i) => (
+                    <View key={`${step}-${i}`} style={styles.routineStepWrapper}>
+                      <View style={styles.routineStep}>
+                        <Text style={styles.routineStepText}>{step}</Text>
+                      </View>
+                      {i < trimmed.length - 1 && (
+                        <Text style={styles.routineStepArrow}>→</Text>
+                      )}
+                    </View>
+                  ))}
+                </ScrollView>
+              );
+            }
+            return (
+              <TouchableOpacity
+                style={styles.noRoutineCta}
+                onPress={() => navigation.navigate('RoutineBuilder')}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.noRoutineCtaText}>
+                  ✨ AI가 내 맞춤 루틴 만들어줘 →
+                </Text>
+              </TouchableOpacity>
+            );
+          })()}
         </View>
 
         {/* MEVE-250 — quick link to trouble check-in */}
@@ -947,27 +928,43 @@ JSON으로만 답하세요: { "tip": "..." }`;
               <Text style={styles.lookHeroLink}>찾아보기 →</Text>
             </TouchableOpacity>
 
-            {profilePersonalColor && (
+            {/* MEVE-257 — quick entry into makeup diagnosis */}
+            <TouchableOpacity
+              style={styles.makeupDiagnosisQuick}
+              onPress={() => navigation.navigate('MakeupDiagnosis')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.makeupDiagnosisQuickIcon}>🪞</Text>
+              <Text style={styles.makeupDiagnosisQuickText}>
+                오늘 화장 이상한 것 같아요
+              </Text>
+              <Text style={styles.makeupDiagnosisQuickArrow}>→</Text>
+            </TouchableOpacity>
+
+            {/* MEVE-257 — PC + 추구미 in a single mini row */}
+            <View style={styles.lookMiniRow}>
               <TouchableOpacity
-                style={styles.lookMiniCard}
+                style={styles.lookMiniRowCard}
                 onPress={() => navigation.navigate('FaceAnalysis')}
                 activeOpacity={0.85}
               >
-                <Text style={styles.lookMiniLabel}>내 퍼스널컬러</Text>
-                <Text style={styles.lookMiniValue}>{profilePersonalColor}</Text>
+                <Text style={styles.lookMiniRowLabel}>퍼스널컬러</Text>
+                <Text style={styles.lookMiniRowValue}>
+                  {profilePersonalColor ?? '분석 전'}
+                </Text>
               </TouchableOpacity>
-            )}
-
-            {profileVibe && (
+              <View style={styles.lookMiniRowDivider} />
               <TouchableOpacity
-                style={styles.lookMiniCard}
+                style={styles.lookMiniRowCard}
                 onPress={() => navigation.navigate('Look')}
                 activeOpacity={0.85}
               >
-                <Text style={styles.lookMiniLabel}>추구미 무드보드</Text>
-                <Text style={styles.lookMiniValue}>{profileVibe}</Text>
+                <Text style={styles.lookMiniRowLabel}>추구미</Text>
+                <Text style={styles.lookMiniRowValue}>
+                  {profileVibe ?? '미설정'}
+                </Text>
               </TouchableOpacity>
-            )}
+            </View>
           </>
         )}
 
@@ -1174,47 +1171,8 @@ JSON으로만 답하세요: { "tip": "..." }`;
                 </TouchableOpacity>
               </GlassCard>
 
-              <GlassCard
-                style={styles.hCardLayout}
-                contentStyle={styles.hCardContent}
-                radius={18}
-                padding={14}
-                sheenColors={['rgba(255,196,214,0.30)', 'rgba(196,184,232,0.20)']}
-              >
-                <View style={styles.hCardHeader}>
-                  <BubbleIcon
-                    icon="color-filter"
-                    size={28}
-                    iconSize={14}
-                    colors={['#FFC4D6', '#C4B8E8']}
-                  />
-                  <Text style={styles.hCardTitle}>퍼스널 컬러</Text>
-                </View>
-                {personalColor ? (
-                  <>
-                    <Text style={styles.hCardScore}>{personalColor}</Text>
-                    {pcSwatches && (
-                      <View style={styles.swatchRow}>
-                        {pcSwatches.map((hex) => (
-                          <View
-                            key={hex}
-                            style={[styles.swatchDot, { backgroundColor: hex }]}
-                          />
-                        ))}
-                      </View>
-                    )}
-                  </>
-                ) : (
-                  <Text style={styles.hCardBody}>
-                    AI 얼굴 분석으로 퍼스널 컬러를 알아보세요
-                  </Text>
-                )}
-                <TouchableOpacity onPress={() => navigation.navigate('FaceAnalysis')}>
-                  <Text style={[styles.hCardCta, { color: '#FF6B9D' }]}>
-                    {personalColor ? '다시 분석하기 →' : '얼굴 분석하기 →'}
-                  </Text>
-                </TouchableOpacity>
-              </GlassCard>
+              {/* MEVE-257 — PC card removed from LOOK activity scroll
+                  (lives in the new mini row above). */}
             </ScrollView>
           </>
         )}
@@ -1252,11 +1210,12 @@ JSON으로만 답하세요: { "tip": "..." }`;
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const PAGE_BG = 'transparent';
+const PAGE_BG = '#F5F5F8';
 const PINK = '#F2A7C3';
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FFF7FB' },
+  // MEVE-258 — flat plain background, matches MyPage aesthetic
+  safeArea: { flex: 1, backgroundColor: PAGE_BG },
   scroll: { flex: 1, backgroundColor: PAGE_BG },
   content: { paddingBottom: 20 },
 
@@ -1406,6 +1365,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     paddingHorizontal: 18,
     paddingVertical: 10,
+    backgroundColor: '#FF6B9D',
   },
   firstScanCtaText: {
     color: '#FFFFFF',
@@ -1958,6 +1918,63 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
+  // MEVE-257 — combined PC + 추구미 mini row
+  lookMiniRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    shadowColor: '#B0B0B0',
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  lookMiniRowCard: {
+    flex: 1,
+    padding: 14,
+    alignItems: 'center',
+  },
+  lookMiniRowDivider: {
+    width: 1,
+    backgroundColor: '#F0F0F5',
+    marginVertical: 10,
+  },
+  lookMiniRowLabel: {
+    fontSize: 11,
+    color: '#8A8A9A',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  lookMiniRowValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FF6B9D',
+  },
+
+  // MEVE-257 — makeup diagnosis quick CTA on the LOOK home
+  makeupDiagnosisQuick: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFF0F5',
+    borderRadius: 14,
+    padding: 14,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FFD0E0',
+  },
+  makeupDiagnosisQuickIcon: { fontSize: 20 },
+  makeupDiagnosisQuickText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF6B9D',
+  },
+  makeupDiagnosisQuickArrow: { fontSize: 16, color: '#FF6B9D' },
+
   // MEVE-250 — trouble check-in quick link
   troubleLink: {
     alignSelf: 'flex-start',
@@ -1970,6 +1987,53 @@ const styles = StyleSheet.create({
     color: '#FF8C69',
     fontWeight: '600',
   },
+
+  // MEVE-258 — plain check-in card (replaces glossy SKIN/LOOK dual gradient)
+  checkinCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    shadowColor: '#000000',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  checkinCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginBottom: 12,
+  },
+  checkinCardMode: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#5BA3D9',
+    letterSpacing: 0.4,
+  },
+  checkinCardSub: { fontSize: 12, color: '#8A8A9A' },
+  ampmRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  ampmBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 50,
+    borderWidth: 1.5,
+    borderColor: '#E5E5EA',
+    backgroundColor: '#FFFFFF',
+  },
+  ampmBtnActive: { borderColor: '#5BA3D9', backgroundColor: '#E8F4FD' },
+  ampmBtnText: { fontSize: 14, color: '#8A8A9A', fontWeight: '600' },
+  ampmBtnTextActive: { color: '#1A1A2E', fontWeight: '700' },
+  scanBtn: {
+    backgroundColor: '#5BA3D9',
+    borderRadius: 50,
+    padding: 14,
+    alignItems: 'center',
+  },
+  scanBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 
   // MEVE-253 — top-of-feed tip banner
   tipBanner: {

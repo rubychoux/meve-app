@@ -4,6 +4,24 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabase';
 
+// MEVE-257 — older builds wrote English event keys (e.g. 'graduation') into
+// `meve_event_type`. Normalize to Korean on read/write so downstream copy
+// like "graduation D-4을 위한 룩" never surfaces.
+const EVENT_TYPE_KO_MAP: Record<string, string> = {
+  graduation: '졸업',
+  wedding: '웨딩',
+  travel: '여행',
+  date: '데이트',
+  photoshoot: '화보',
+  birthday: '생일',
+  interview: '면접',
+};
+
+function normalizeEventType(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  return EVENT_TYPE_KO_MAP[raw.toLowerCase()] ?? raw;
+}
+
 export interface BeautyProfile {
   // 피부
   skinType: string | null;
@@ -92,6 +110,14 @@ export const useBeautyProfile = create<BeautyProfileStore>((set, get) => ({
         faceAnalysis = faceAnalysisRaw ? JSON.parse(faceAnalysisRaw) : null;
       } catch {}
 
+      // MEVE-257 — migrate any English eventType in storage to Korean.
+      const normalizedEventType = normalizeEventType(eventType);
+      if (eventType && normalizedEventType && normalizedEventType !== eventType) {
+        try {
+          await AsyncStorage.setItem('meve_event_type', normalizedEventType);
+        } catch {}
+      }
+
       const merged: Partial<BeautyProfile> = {
         skinType: profile?.skin_type ?? lastScan?.skinType ?? null,
         skinConcerns: profile?.skin_concerns ?? lastScan?.concerns ?? [],
@@ -102,7 +128,7 @@ export const useBeautyProfile = create<BeautyProfileStore>((set, get) => ({
         skinTone: profile?.skin_tone ?? faceAnalysis?.skinTone ?? null,
         vibe: profile?.vibe ?? vibe ?? null,
         makeupIntensity: profile?.makeup_intensity ?? null,
-        eventType: eventType ?? null,
+        eventType: normalizedEventType,
         eventDate: eventDate ?? null,
         lastSkinScore: lastScan?.overallScore ?? null,
         isLoaded: true,
@@ -119,6 +145,10 @@ export const useBeautyProfile = create<BeautyProfileStore>((set, get) => ({
   },
 
   updateProfile: async (updates) => {
+    // MEVE-257 — normalize any English eventType keys before persisting.
+    if (updates.eventType !== undefined && updates.eventType !== null) {
+      updates = { ...updates, eventType: normalizeEventType(updates.eventType) };
+    }
     set(updates as BeautyProfile);
 
     try {
