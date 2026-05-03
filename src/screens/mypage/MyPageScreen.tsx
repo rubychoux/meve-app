@@ -208,7 +208,7 @@ export function MyPageScreen() {
         {/* ── 2. BEAUTY DNA ───────────────────────────────────────────────── */}
         <BeautyDnaCard
           onFaceAnalysis={() => navigation.navigate('FaceAnalysis')}
-          onSkinScan={() => (navigation as any).navigate('Skin')}
+          onSkinScan={() => (navigation as any).navigate('Scan')}
         />
 
         {/* ── 3. PLAN CARD (if not premium) ──────────────────────────────── */}

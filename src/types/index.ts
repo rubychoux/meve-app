@@ -151,10 +151,13 @@ export type SkinMode = 'wedding' | 'everyday' | 'graduation' | 'travel';
 
 export type EventType = 'wedding' | 'date' | 'graduation' | 'travel' | 'other';
 
+// MEVE-249 — new tab structure: 홈 / 스캔 / meve / eve / 마이.
+// Skin and Look tabs were removed; their content lives in mode-aware screens
+// (Home/Scan) plus stack screens (FaceScanner, Skincare, Look).
 export type MainTabParamList = {
   Home: undefined;
-  Skin: undefined;
-  Look: undefined;
+  Scan: undefined;
+  Meve: { mode?: 'skin' | 'look' } | undefined;
   Community: undefined;
   MyPage: undefined;
 };
@@ -187,13 +190,33 @@ export type MainStackParamList = {
   LookPollDetail: { pollId: string };
   CreatePost: undefined;
   PostDetail: { postId: string };
-  RoutineCoachChat: undefined;
+  // MEVE-253 — chat can be opened in skin or look coach mode.
+  RoutineCoachChat: { mode?: 'skin' | 'look' } | undefined;
   Notifications: undefined;
+  // MEVE-249 — flattened from AIScanNavigator so ScanScreen / HomeScreen can
+  // push these directly now that the Skin/Look tabs are gone.
+  FaceScanner: undefined;
+  IngredientScanner: undefined;
+  IngredientResult: { imageBase64?: string; result?: any };
+  Skincare: undefined;
+  Look: undefined;
+  // MEVE-250 — trouble check-in flow.
+  TroubleCheckin: undefined;
+  // MEVE-251 — AI cause-analysis report.
+  TroubleAnalysis: undefined;
+  // MEVE-252 — product reaction tracking (start / checkin / history modes).
+  ProductTracking:
+    | { mode?: 'start' | 'checkin' | 'history'; trackingId?: string }
+    | undefined;
+  // MEVE-254 — AI routine builder (5-step flow).
+  RoutineBuilder: undefined;
 };
 
 export type CommunityStackParamList = {
-  CommunityFeed: undefined;
+  Community: undefined;
   CreatePost: undefined;
+  PostDetail: { postId: string };
+  Notifications: undefined;
 };
 
 export type NotificationType = 'comment' | 'reply' | 'like';

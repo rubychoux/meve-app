@@ -26,19 +26,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CompositeNavigationProp, useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
-import { AIScanStackParamList, MainStackParamList, ScanAnalysisResult } from '../../types';
+import { MainStackParamList, ScanAnalysisResult } from '../../types';
 import { loadRoutineCheckin, RoutineCheckin } from '../../utils/routineCheckin';
 import { cleanJson } from '../../utils/openai';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
 
-type Nav = CompositeNavigationProp<
-  NativeStackNavigationProp<AIScanStackParamList, 'SkinHome'>,
-  NativeStackNavigationProp<MainStackParamList>
->;
+// MEVE-249 — SkincareScreen now lives in MainStackNavigator under name 'Skincare'.
+type Nav = NativeStackNavigationProp<MainStackParamList, 'Skincare'>;
 
 // ─── Event config (inline) ───────────────────────────────────────────────────
 
@@ -645,7 +643,7 @@ Max 4 recommended, 3 avoid. All text in Korean.`,
                 아직 루틴이 없어요.{'\n'}AI 루틴 코치에게 루틴을 만들어달라고 해봐요
               </Text>
               <TouchableOpacity
-                onPress={() => navigation.navigate('RoutineCoachChat')}
+                onPress={() => navigation.navigate('RoutineBuilder')}
                 style={styles.generatedEmptyBtn}
                 activeOpacity={0.85}
               >

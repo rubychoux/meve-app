@@ -17,9 +17,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
-import { AIScanStackParamList } from '../../types';
+import { MainStackParamList } from '../../types';
 
-type Nav = NativeStackNavigationProp<AIScanStackParamList, 'IngredientScanner'>;
+type Nav = NativeStackNavigationProp<MainStackParamList, 'IngredientScanner'>;
 
 export function IngredientScannerScreen() {
   const navigation = useNavigation<Nav>();

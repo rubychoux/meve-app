@@ -16,11 +16,11 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
-import { AIScanStackParamList } from '../../types';
+import { MainStackParamList } from '../../types';
 import { openOliveYoungSearch } from '../../services/affiliate';
 
-type Nav = NativeStackNavigationProp<AIScanStackParamList, 'IngredientResult'>;
-type Route = RouteProp<AIScanStackParamList, 'IngredientResult'>;
+type Nav = NativeStackNavigationProp<MainStackParamList, 'IngredientResult'>;
+type Route = RouteProp<MainStackParamList, 'IngredientResult'>;
 
 interface IngredientItem {
   name: string;
@@ -296,7 +296,7 @@ Return ONLY valid JSON no markdown:
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.outlineBtn}
-              onPress={() => navigation.navigate('SkinHome')}
+              onPress={() => navigation.navigate('Skincare')}
             >
               <Text style={styles.outlineBtnText}>홈으로</Text>
             </TouchableOpacity>

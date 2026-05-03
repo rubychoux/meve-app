@@ -30,6 +30,20 @@ import { CreatePostScreen } from '../screens/community/CreatePostScreen';
 import { PostDetailScreen } from '../screens/community/PostDetailScreen';
 import { RoutineCoachChatScreen } from '../screens/skincare/RoutineCoachChatScreen';
 import { NotificationScreen } from '../screens/community/NotificationScreen';
+// MEVE-249 — flattened from AIScanNavigator after Skin/Look tabs were removed.
+import { SkincareScreen } from '../screens/skincare/SkincareScreen';
+import { FaceScannerScreen } from '../screens/scanner/FaceScannerScreen';
+import { IngredientScannerScreen } from '../screens/scanner/IngredientScannerScreen';
+import { IngredientResultScreen } from '../screens/scanner/IngredientResultScreen';
+import { LookScreen } from '../screens/look/LookScreen';
+// MEVE-250 — trouble check-in screen.
+import { TroubleCheckinScreen } from '../screens/skincare/TroubleCheckinScreen';
+// MEVE-251 — AI cause-analysis screen.
+import { TroubleAnalysisScreen } from '../screens/skincare/TroubleAnalysisScreen';
+// MEVE-252 — product reaction tracking screen.
+import { ProductTrackingScreen } from '../screens/skincare/ProductTrackingScreen';
+// MEVE-254 — AI routine builder screen.
+import { RoutineBuilderScreen } from '../screens/skincare/RoutineBuilderScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -73,6 +87,15 @@ export function MainStackNavigator() {
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
       <Stack.Screen name="RoutineCoachChat" component={RoutineCoachChatScreen} />
       <Stack.Screen name="Notifications" component={NotificationScreen} />
+      <Stack.Screen name="FaceScanner" component={FaceScannerScreen} />
+      <Stack.Screen name="IngredientScanner" component={IngredientScannerScreen} />
+      <Stack.Screen name="IngredientResult" component={IngredientResultScreen} />
+      <Stack.Screen name="Skincare" component={SkincareScreen} />
+      <Stack.Screen name="Look" component={LookScreen} />
+      <Stack.Screen name="TroubleCheckin" component={TroubleCheckinScreen} />
+      <Stack.Screen name="TroubleAnalysis" component={TroubleAnalysisScreen} />
+      <Stack.Screen name="ProductTracking" component={ProductTrackingScreen} />
+      <Stack.Screen name="RoutineBuilder" component={RoutineBuilderScreen} />
     </Stack.Navigator>
   );
 }

@@ -146,7 +146,7 @@ export function ScanResultScreen() {
         ['meve_last_scan_result', JSON.stringify(result)],
       ]);
       await AsyncStorage.removeItem('meve_routine');
-      navigation.navigate('MainTabs', { screen: 'Skin' } as any);
+      navigation.navigate('MainTabs', { screen: 'Scan' } as any);
     } catch (e: any) {
       Alert.alert('오류', e?.message ?? '다시 시도해 주세요.');
     }
