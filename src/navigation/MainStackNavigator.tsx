@@ -44,6 +44,10 @@ import { TroubleAnalysisScreen } from '../screens/skincare/TroubleAnalysisScreen
 import { ProductTrackingScreen } from '../screens/skincare/ProductTrackingScreen';
 // MEVE-254 — AI routine builder screen.
 import { RoutineBuilderScreen } from '../screens/skincare/RoutineBuilderScreen';
+// MEVE-255 — Makeup diagnosis (Vision-based) screen.
+import { MakeupDiagnosisScreen } from '../screens/look/MakeupDiagnosisScreen';
+// MEVE-256 — single-screen event setter.
+import { EventSettingScreen } from '../screens/onboarding/EventSettingScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -96,6 +100,8 @@ export function MainStackNavigator() {
       <Stack.Screen name="TroubleAnalysis" component={TroubleAnalysisScreen} />
       <Stack.Screen name="ProductTracking" component={ProductTrackingScreen} />
       <Stack.Screen name="RoutineBuilder" component={RoutineBuilderScreen} />
+      <Stack.Screen name="MakeupDiagnosis" component={MakeupDiagnosisScreen} />
+      <Stack.Screen name="EventSetting" component={EventSettingScreen} />
     </Stack.Navigator>
   );
 }

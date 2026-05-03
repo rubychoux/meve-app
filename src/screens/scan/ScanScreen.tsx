@@ -16,6 +16,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ModeToggle } from '../../components/ui/ModeToggle';
 import { useMode } from '../../stores/modeStore';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
+import { getEventContextText, getEventEmoji } from '../../utils/eventLens';
 import { MainStackParamList, MainTabParamList } from '../../types';
 
 type Nav = CompositeNavigationProp<
@@ -96,6 +97,16 @@ export function ScanScreen() {
   const goMeveTab = () =>
     navigation.navigate('MainTabs', { screen: 'Meve' } as any);
 
+  // MEVE-256 — used for event-aware sub copy on a few menu items.
+  const daysLeft = profile.eventDate
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(profile.eventDate).getTime() - Date.now()) / 86_400_000
+        )
+      )
+    : null;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
@@ -112,7 +123,11 @@ export function ScanScreen() {
             <MenuItem
               icon="🔬"
               title="AI 피부 스캔"
-              sub="사진 한 장으로 피부를 분석해요"
+              sub={getEventContextText(
+                '사진 한 장으로 피부를 분석해요',
+                profile.eventType,
+                daysLeft
+              )}
               onPress={() => navigation.navigate('FaceScanner')}
               highlight
             />
@@ -133,7 +148,11 @@ export function ScanScreen() {
             <MenuItem
               icon="📈"
               title="내 피부 여정"
-              sub="스코어 변화 · 시술 기록 · 제품 기록"
+              sub={getEventContextText(
+                '스코어 변화 · 시술 기록 · 제품 기록',
+                profile.eventType,
+                daysLeft
+              )}
               onPress={() => navigation.navigate('SkinJournal')}
               badge={
                 profile.lastSkinScore != null
@@ -164,14 +183,24 @@ export function ScanScreen() {
 
             <SectionHeader title="💊 케어 플랜" />
             <MenuItem
-              icon="📅"
-              title="D-day 케어 플랜"
-              sub={
-                profile.eventType
-                  ? `${profile.eventType} 단계별 가이드`
-                  : '이벤트를 설정해봐요'
+              icon={
+                profile.eventType ? getEventEmoji(profile.eventType) : '📅'
               }
-              onPress={() => navigation.navigate('DdayPlan')}
+              title={
+                profile.eventType
+                  ? `${profile.eventType} D-day 케어 플랜`
+                  : 'D-day 케어 플랜'
+              }
+              sub={
+                profile.eventType && daysLeft != null
+                  ? `${profile.eventType} D-${daysLeft} 단계별 가이드`
+                  : '특별한 날을 설정하면 맞춤 플랜이 생겨요'
+              }
+              onPress={() =>
+                profile.eventType
+                  ? navigation.navigate('DdayPlan')
+                  : navigation.navigate('EventSetting')
+              }
             />
             <MenuItem
               icon="👩‍⚕️"
@@ -214,11 +243,37 @@ export function ScanScreen() {
           </>
         ) : (
           <>
-            <SectionHeader title="✨ 분석" />
+            {/* MEVE-255 — makeup diagnosis (Vision) is the new LOOK headline. */}
+            <SectionHeader title="🪞 메이크업 진단" />
+            <MenuItem
+              icon="💄"
+              title="내 화장 진단받기"
+              sub={
+                profile.eventType && daysLeft != null
+                  ? `${profile.eventType}식 화장 미리 연습해봐요`
+                  : '"묘하게 이상한 이유"를 찾아드려요'
+              }
+              onPress={() => navigation.navigate('MakeupDiagnosis')}
+              highlight
+            />
+            <MenuItem
+              icon="🎯"
+              title="원하는 느낌이 안 나와요"
+              sub="원하는 느낌 vs 현재 비교 분석"
+              onPress={() => navigation.navigate('MakeupDiagnosis')}
+            />
+            <MenuItem
+              icon="🎨"
+              title="내 색조가 안 어울려요"
+              sub="퍼스널컬러 기반 색조 미스매치 진단"
+              onPress={() => navigation.navigate('MakeupDiagnosis')}
+            />
+
+            <SectionHeader title="✨ 얼굴 분석" />
             <MenuItem
               icon="🪞"
               title="AI 얼굴 분석"
-              sub="퍼스널컬러 · 얼굴형 · 눈매 분석"
+              sub="퍼스널컬러 · 얼굴형 · 눈매 분석 (민낯)"
               onPress={() => navigation.navigate('FaceAnalysis')}
               highlight
             />
@@ -251,7 +306,11 @@ export function ScanScreen() {
             <MenuItem
               icon="💅"
               title="오늘의 룩"
-              sub="퍼스널컬러 · 추구미 기반 추천"
+              sub={
+                profile.eventType && daysLeft != null
+                  ? `${profile.eventType}에 어울리는 룩 추천`
+                  : '퍼스널컬러 · 추구미 기반 추천'
+              }
               onPress={() => navigation.navigate('TodaysLook')}
             />
 

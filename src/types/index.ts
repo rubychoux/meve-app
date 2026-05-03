@@ -210,6 +210,10 @@ export type MainStackParamList = {
     | undefined;
   // MEVE-254 — AI routine builder (5-step flow).
   RoutineBuilder: undefined;
+  // MEVE-255 — Makeup diagnosis (Vision-based, multi-purpose).
+  MakeupDiagnosis: undefined;
+  // MEVE-256 — single-screen event setter (replaces EventFlow entry points).
+  EventSetting: undefined;
 };
 
 export type CommunityStackParamList = {

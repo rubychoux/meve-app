@@ -1,10 +1,9 @@
+// MEVE-258 — restored uploaded PNG tab icons. Tab bar is otherwise still
+// flat (white, hairline border, no blur/gradient backdrop).
 import React from 'react';
-import { View, Image, StyleSheet, ImageSourcePropType } from 'react-native';
+import { Image, StyleSheet, ImageSourcePropType } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { MainTabParamList } from '../types';
-import { Typography } from '../constants/theme';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { ScanScreen } from '../screens/scan/ScanScreen';
 import { MeveScreen } from '../screens/meve/MeveScreen';
@@ -13,9 +12,8 @@ import { MyPageScreen } from '../screens/mypage/MyPageScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-// MEVE-249 — new tab layout. Scan/Meve reuse the legacy tab-skin / tab-look
-// PNGs until dedicated icons land.
-const tabIcons: Record<
+// Scan reuses tab-skin.png; Meve reuses tab-look.png until dedicated icons land.
+const TAB_ICONS: Record<
   string,
   { active: ImageSourcePropType; inactive: ImageSourcePropType }
 > = {
@@ -49,58 +47,37 @@ const labels: Record<string, string> = {
   MyPage: '마이페이지',
 };
 
-function TabBarBackground() {
-  return (
-    <View style={StyleSheet.absoluteFill}>
-      <BlurView
-        intensity={40}
-        tint="light"
-        experimentalBlurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={['rgba(249,196,216,0.18)', 'rgba(184,212,240,0.10)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={tabStyles.topHairline} />
-    </View>
-  );
-}
-
 export function MainNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarBackground: () => <TabBarBackground />,
         tabBarIcon: ({ focused }) => {
-          const set = tabIcons[route.name];
+          const set = TAB_ICONS[route.name];
           if (!set) return null;
           return (
             <Image
               source={focused ? set.active : set.inactive}
-              style={tabStyles.icon}
+              style={[tabStyles.icon, { opacity: focused ? 1 : 0.6 }]}
             />
           );
         },
         tabBarLabel: labels[route.name],
-        tabBarActiveTintColor: '#FF6B9D',
+        tabBarActiveTintColor: '#5BA3D9',
         tabBarInactiveTintColor: '#C0C0CC',
         tabBarStyle: {
-          backgroundColor: 'transparent',
-          borderTopWidth: 0,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#F0F0F5',
           height: 84,
-          paddingBottom: 20,
+          paddingBottom: 24,
           paddingTop: 8,
           elevation: 0,
         },
         tabBarLabelStyle: {
-          ...Typography.caption,
-          fontFamily: 'NanumSquareRoundB',
-          fontSize: 10,
-          marginTop: 9,
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: -2,
         },
       })}
     >
@@ -114,14 +91,6 @@ export function MainNavigator() {
 }
 
 const tabStyles = StyleSheet.create({
-  topHairline: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-  },
   icon: {
     width: 96,
     height: 96,
