@@ -6,15 +6,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MainTabParamList } from '../types';
 import { Typography } from '../constants/theme';
 import { HomeScreen } from '../screens/home/HomeScreen';
-import { AIScanNavigator } from './AIScanNavigator';
-import { LookScreen } from '../screens/look/LookScreen';
+import { ScanScreen } from '../screens/scan/ScanScreen';
+import { MeveScreen } from '../screens/meve/MeveScreen';
 import { CommunityStackNavigator } from './CommunityStackNavigator';
 import { MyPageScreen } from '../screens/mypage/MyPageScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-// NOTE: tab-*-active.png variants do not exist yet. Once added, swap the
-// `active` entries below to point at the *-active.png files.
+// MEVE-249 — new tab layout. Scan/Meve reuse the legacy tab-skin / tab-look
+// PNGs until dedicated icons land.
 const tabIcons: Record<
   string,
   { active: ImageSourcePropType; inactive: ImageSourcePropType }
@@ -23,11 +23,11 @@ const tabIcons: Record<
     active: require('../../assets/icons/tab-home.png'),
     inactive: require('../../assets/icons/tab-home.png'),
   },
-  Skin: {
+  Scan: {
     active: require('../../assets/icons/tab-skin.png'),
     inactive: require('../../assets/icons/tab-skin.png'),
   },
-  Look: {
+  Meve: {
     active: require('../../assets/icons/tab-look.png'),
     inactive: require('../../assets/icons/tab-look.png'),
   },
@@ -43,8 +43,8 @@ const tabIcons: Record<
 
 const labels: Record<string, string> = {
   Home: '홈',
-  Skin: 'SKIN',
-  Look: 'LOOK',
+  Scan: '나',
+  Meve: 'meve',
   Community: 'eve',
   MyPage: '마이페이지',
 };
@@ -105,8 +105,8 @@ export function MainNavigator() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Skin" component={AIScanNavigator} />
-      <Tab.Screen name="Look" component={LookScreen} />
+      <Tab.Screen name="Scan" component={ScanScreen} />
+      <Tab.Screen name="Meve" component={MeveScreen} />
       <Tab.Screen name="Community" component={CommunityStackNavigator} />
       <Tab.Screen name="MyPage" component={MyPageScreen} />
     </Tab.Navigator>

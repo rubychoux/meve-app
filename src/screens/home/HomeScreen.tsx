@@ -44,6 +44,8 @@ import { MainTabParamList, MainStackParamList } from '../../types';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from '../../services/supabase';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
+import { useMode } from '../../stores/modeStore';
+import { ModeToggle } from '../../components/ui/ModeToggle';
 import { EVENT_CONFIG, EventKey } from '../../constants/events';
 import {
   getEventConfig as getEventThemeConfig,
@@ -134,6 +136,8 @@ export function HomeScreen() {
   // MEVE — event source of truth: beautyProfileStore (reactive across screens)
   const eventType = useBeautyProfile((s) => s.eventType);
   const eventDate = useBeautyProfile((s) => s.eventDate);
+  // MEVE-249 — global SKIN/LOOK mode determines which home variant to render.
+  const mode = useMode();
   const { width } = useWindowDimensions();
 
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -144,6 +148,18 @@ export function HomeScreen() {
   const [vibe, setVibe] = useState<string | null>(null);
   const [personalColor, setPersonalColor] = useState<string | null>(null);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
+
+  // MEVE-253 — daily tip banner (top of home, mode-aware, date-cached)
+  const [todayTip, setTodayTip] = useState<string | null>(null);
+
+  // MEVE-253 — last-7-day scans for the new skin-record card (avg + bar chart)
+  const [recentScans, setRecentScans] = useState<ScanRecord[]>([]);
+  const [avgScore, setAvgScore] = useState<number | null>(null);
+  const [recentScoreDiff, setRecentScoreDiff] = useState<number | null>(null);
+
+  // MEVE-253 — routine steps loaded from `meve_routine` (single key, has am/pm)
+  const [amRoutineSteps, setAmRoutineSteps] = useState<string[]>([]);
+  const [pmRoutineSteps, setPmRoutineSteps] = useState<string[]>([]);
 
   // MEVE-202 — first-scan banner state
   const lastSkinScore = useBeautyProfile((s) => s.lastSkinScore);
@@ -223,6 +239,150 @@ export function HomeScreen() {
       cancelled = true;
     };
   }, [calYear, calMonth, daysInMonthForEffect]);
+
+  // MEVE-253 — load last-7-day skin scans for the new home record card
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const { data } = await supabase
+          .from('skin_scans')
+          .select('scan_result, created_at')
+          .eq('user_id', user.id)
+          .gte('created_at', sevenDaysAgo.toISOString())
+          .order('created_at', { ascending: true })
+          .limit(7);
+        if (cancelled || !data || data.length === 0) return;
+        const scans: ScanRecord[] = data.map((s: any) => ({
+          date: s.created_at.slice(0, 10),
+          score: s.scan_result?.overallScore ?? 0,
+        }));
+        setRecentScans(scans);
+        const avg = Math.round(
+          scans.reduce((sum, r) => sum + r.score, 0) / scans.length
+        );
+        setAvgScore(avg);
+        setRecentScoreDiff(
+          scans.length >= 2 ? scans[scans.length - 1].score - scans[0].score : null
+        );
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // MEVE-253 — load saved routine (single AsyncStorage key with am/pm arrays)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('meve_routine');
+        if (cancelled || !raw) return;
+        const parsed = JSON.parse(raw);
+        const toLabels = (arr: any): string[] =>
+          Array.isArray(arr)
+            ? arr.map((s) =>
+                typeof s === 'string'
+                  ? s
+                  : s?.product ?? s?.category ?? s?.step ?? ''
+              ).filter(Boolean)
+            : [];
+        setAmRoutineSteps(toLabels(parsed?.am));
+        setPmRoutineSteps(toLabels(parsed?.pm));
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // MEVE-253 — load (or generate + cache) today's mode-specific tip.
+  // Cache: AsyncStorage `meve_{mode}_tip_${YYYY-MM-DD}`. Falls back to the
+  // static tip arrays when GPT is unavailable. Mirrors to Supabase daily_tips
+  // so MeveScreen can render the channel history.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const cacheKey = `meve_${mode}_tip_${todayStr}`;
+      try {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          if (!cancelled) setTodayTip(cached);
+          return;
+        }
+
+        // Pick a stable fallback so we always have something to show.
+        const idx = new Date().getDate() % 7;
+        const fallback = mode === 'look' ? LOOK_TIPS[idx] : SKIN_TIPS[idx];
+
+        let tip = fallback;
+        try {
+          const prompt = `당신은 meve의 ${
+            mode === 'look' ? '스타일' : '스킨케어'
+          } 코치예요.
+오늘 사용자에게 줄 짧은 뷰티 팁을 한 문장으로 만들어주세요.
+한국어 해요체, 60자 이내, 친근하고 실용적으로.
+JSON으로만 답하세요: { "tip": "..." }`;
+          const res = await fetch(
+            'https://api.openai.com/v1/chat/completions',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${process.env.EXPO_PUBLIC_OPENAI_API_KEY}`,
+              },
+              body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                max_tokens: 120,
+                response_format: { type: 'json_object' },
+                messages: [{ role: 'user', content: prompt }],
+              }),
+            }
+          );
+          if (res.ok) {
+            const json = await res.json();
+            const content: string = json.choices?.[0]?.message?.content ?? '';
+            const parsed = JSON.parse(content);
+            if (typeof parsed?.tip === 'string' && parsed.tip.trim()) {
+              tip = parsed.tip.trim();
+            }
+          }
+        } catch {
+          // Keep the fallback tip.
+        }
+
+        if (cancelled) return;
+        setTodayTip(tip);
+
+        // Persist locally and mirror to Supabase (best-effort).
+        try {
+          await AsyncStorage.setItem(cacheKey, tip);
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.from('daily_tips').upsert(
+              {
+                user_id: user.id,
+                mode,
+                tip_text: tip,
+                tip_date: todayStr,
+                event_type: eventType ?? null,
+              },
+              { onConflict: 'user_id,mode,tip_date' }
+            );
+          }
+        } catch {}
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, eventType]);
 
   const loadProfile = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -363,8 +523,9 @@ export function HomeScreen() {
 
   const domToday = new Date().getDate();
   const tipIndex = domToday % 7;
-  const tipLabel = domToday % 2 === 0 ? 'SKIN' : 'LOOK';
-  const tipText = domToday % 2 === 0 ? SKIN_TIPS[tipIndex] : LOOK_TIPS[tipIndex];
+  // MEVE-249 — tip aligns with the active mode instead of alternating by day.
+  const tipLabel: 'SKIN' | 'LOOK' = mode === 'look' ? 'LOOK' : 'SKIN';
+  const tipText = mode === 'look' ? LOOK_TIPS[tipIndex] : SKIN_TIPS[tipIndex];
   const latestScan = scanRecords[0] ?? null;
   const pcSwatches =
     personalColor && (personalColor as PersonalColor) in PERSONAL_COLOR_SWATCHES
@@ -372,7 +533,7 @@ export function HomeScreen() {
       : null;
 
   const goToFaceScanner = () => {
-    (navigation as any).navigate('Skin', { screen: 'FaceScanner' });
+    navigation.navigate('FaceScanner');
   };
 
   const currentMonthPrefix = (() => {
@@ -511,8 +672,26 @@ export function HomeScreen() {
           </View>
         </View>
 
-        {/* ── FIRST SCAN BANNER ───────────────────────────────────────── */}
-        {showFirstScanBanner && (
+        {/* ── MODE TOGGLE (MEVE-249) ──────────────────────────────────── */}
+        <ModeToggle />
+
+        {/* ── TODAY'S TIP (MEVE-253) — top-of-feed, mode-aware ────────── */}
+        {todayTip && (
+          <View
+            style={[
+              styles.tipBanner,
+              mode === 'skin' ? styles.tipBannerSkin : styles.tipBannerLook,
+            ]}
+          >
+            <Text style={styles.tipBannerLabel}>
+              {mode === 'skin' ? '💙 오늘의 SKIN 팁' : '💕 오늘의 LOOK 팁'}
+            </Text>
+            <Text style={styles.tipBannerText}>{todayTip}</Text>
+          </View>
+        )}
+
+        {/* ── FIRST SCAN BANNER (SKIN only) ───────────────────────────── */}
+        {mode === 'skin' && showFirstScanBanner && (
           <View style={styles.firstScanBanner}>
             <TouchableOpacity
               onPress={dismissScanBanner}
@@ -528,7 +707,7 @@ export function HomeScreen() {
               지금 스캔하면 맞춤 루틴과 메이크업을 추천해드려요
             </Text>
             <TouchableOpacity
-              onPress={() => navigation.navigate('Skin')}
+              onPress={() => navigation.navigate('Scan')}
               activeOpacity={0.85}
               style={styles.firstScanCtaShadow}
             >
@@ -544,179 +723,81 @@ export function HomeScreen() {
           </View>
         )}
 
-        {/* ── CALENDAR (collapsible) ──────────────────────────────────── */}
-        <GlassCard style={styles.calendarCardLayout} radius={20} padding={0}>
-          <TouchableOpacity
-            style={styles.calFoldHeader}
-            onPress={toggleCalendar}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.calFoldTitle}>피부 기록 🗓️</Text>
-            <View style={styles.calFoldPill}>
-              <Text style={styles.calFoldPillText}>이번 달 {monthScanCount}회 스캔</Text>
+        {/* ── SKIN RECORD (MEVE-253) — replaces the calendar ─────────── */}
+        {mode === 'skin' && (
+          <View style={styles.skinRecordCard}>
+            <View style={styles.skinRecordHeader}>
+              <Text style={styles.skinRecordTitle}>피부 기록 📓</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('SkinJournal')}>
+                <Text style={styles.skinRecordLink}>자세히 보기 →</Text>
+              </TouchableOpacity>
             </View>
-            <Ionicons
-              name={calendarExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
-              size={18}
-              color="#999"
-            />
-          </TouchableOpacity>
-
-          {calendarExpanded && (
-          <View style={styles.calContent}>
-          {/* Month nav */}
-          <View style={styles.calMonthRow}>
-            <TouchableOpacity onPress={prevMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="chevron-back" size={18} color="#999" />
-            </TouchableOpacity>
-            <Text style={styles.calMonthText}>{calYear}년 {calMonth + 1}월</Text>
-            <TouchableOpacity onPress={nextMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="chevron-forward" size={18} color="#999" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Day headers */}
-          <View style={styles.calDayHeaders}>
-            {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-              <Text
-                key={d}
-                style={[
-                  styles.calDayHeader,
-                  i === 0 && { color: '#FF6B6B' },
-                  i === 6 && { color: '#74B9FF' },
-                ]}
-              >
-                {d}
-              </Text>
-            ))}
-          </View>
-
-          {/* Grid */}
-          <View style={styles.calGrid}>
-            {cells.map((day, idx) => {
-              if (day === null) {
-                return <View key={`empty-${idx}`} style={[styles.calCell, { width: cellSize }]} />;
-              }
-
-              const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const isToday = dateStr === todayStr;
-              const isSelected = day === selectedDay;
-              const isDday = dateStr === eventDateStr;
-              const score = scanMap[dateStr];
-              const colIdx = idx % 7;
-              const dayRoutine = routineByDate[dateStr];
-
-              return (
-                <TouchableOpacity
-                  key={dateStr}
-                  style={[styles.calCell, { width: cellSize }]}
-                  onPress={() => setSelectedDay(day === selectedDay ? null : day)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[
-                    styles.calDayCircle,
-                    { width: cellSize - 4, height: cellSize - 4 },
-                    isToday && styles.calDayCircleToday,
-                    isSelected && !isToday && styles.calDayCircleSelected,
-                  ]}>
-                    <Text style={[
-                      styles.calDayNum,
-                      colIdx === 0 && { color: '#FF6B6B' },
-                      colIdx === 6 && { color: '#74B9FF' },
-                      isToday && { color: '#fff', fontFamily: 'NanumSquareRoundB' },
-                      isSelected && !isToday && { color: '#F2A7C3', fontFamily: 'NanumSquareRoundB' },
-                    ]}>
-                      {day}
-                    </Text>
-                    {isDday && eventConfig && (
-                      <View style={styles.calDdayBadge}>
-                        <Ionicons
-                          name={eventType === 'wedding' ? 'diamond' :
-                                eventType === 'date' ? 'heart' :
-                                eventType === 'graduation' ? 'school' : 'airplane'}
-                          size={8}
-                          color={eventConfig.accentColor}
-                        />
-                      </View>
-                    )}
+            {recentScans.length > 0 ? (
+              <>
+                <View style={styles.scoreRow}>
+                  <View>
+                    <Text style={styles.scoreLabel}>평균 스킨 스코어</Text>
+                    <Text style={styles.scoreValue}>{avgScore}점</Text>
                   </View>
-                  {score !== undefined ? (
-                    <View style={[styles.calDot, { backgroundColor: scoreColor(score) }]} />
-                  ) : (
-                    <View style={styles.calDotEmpty} />
+                  {recentScoreDiff !== null && recentScoreDiff !== 0 && (
+                    <View style={styles.scoreDiffBadge}>
+                      <Text
+                        style={[
+                          styles.scoreDiffText,
+                          { color: recentScoreDiff >= 0 ? '#7CB798' : '#FF6B6B' },
+                        ]}
+                      >
+                        {recentScoreDiff >= 0
+                          ? `↑ +${recentScoreDiff}`
+                          : `↓ ${recentScoreDiff}`}점
+                      </Text>
+                    </View>
                   )}
-                  <View style={styles.calRoutineRow}>
-                    {dayRoutine?.am ? (
-                      <View style={[styles.calRoutineDot, { backgroundColor: PINK }]} />
-                    ) : (
-                      <View style={styles.calRoutineDotEmpty} />
-                    )}
-                    {dayRoutine?.pm ? (
-                      <View style={[styles.calRoutineDot, { backgroundColor: '#A8D5E8' }]} />
-                    ) : (
-                      <View style={styles.calRoutineDotEmpty} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Selected day info */}
-          {selectedDateStr && (
-            <View style={styles.calSelectedInfo}>
-              {selectedScore !== undefined ? (
-                <View style={styles.calSelectedScore}>
-                  <View style={[styles.calSelectedDot, { backgroundColor: scoreColor(selectedScore) }]} />
-                  <Text style={styles.calSelectedText}>
-                    {calMonth + 1}월 {selectedDay}일 피부 점수: <Text style={{ fontFamily: 'NanumSquareRoundB', color: '#2D2D2D' }}>{selectedScore}점</Text>
-                  </Text>
                 </View>
-              ) : (
-                <Text style={styles.calSelectedEmpty}>
-                  {calMonth + 1}월 {selectedDay}일 — 스캔 기록이 없어요
-                </Text>
-              )}
-            </View>
-          )}
-          </View>
-          )}
-        </GlassCard>
-
-        {/* ── MEVE-246 NEW CARD 1: DNA 요약 ──────────────────────────── */}
-        {(profilePersonalColor || profileSkinType || lastSkinScore != null) && (
-          <TouchableOpacity
-            style={styles.dnaSummaryCard}
-            onPress={() => navigation.navigate('MyPage')}
-            activeOpacity={0.85}
-          >
-            <View style={styles.dnaSummaryLeft}>
-              <Text style={styles.dnaSummaryLabel}>내 뷰티 DNA ✨</Text>
-              <Text style={styles.dnaSummaryContent} numberOfLines={1}>
-                {[profilePersonalColor, profileSkinType, profileVibe]
-                  .filter(Boolean)
-                  .join(' · ') || '프로필을 완성해봐요'}
-              </Text>
-            </View>
-            {lastSkinScore != null && (
-              <View style={styles.dnaSummaryScore}>
-                <Text style={styles.dnaSummaryScoreNum}>{lastSkinScore}점</Text>
-                {scoreDiff !== null && scoreDiff !== 0 && (
-                  <Text
-                    style={[
-                      styles.dnaSummaryScoreDiff,
-                      { color: scoreDiff > 0 ? '#7CB798' : '#FF6B6B' },
-                    ]}
-                  >
-                    {scoreDiff > 0 ? `↑ +${scoreDiff}` : `↓ ${scoreDiff}`}
-                  </Text>
-                )}
+                <View style={styles.miniChart}>
+                  {recentScans.map((scan, i) => {
+                    const barHeight = Math.max(4, (scan.score / 100) * 48);
+                    const isLast = i === recentScans.length - 1;
+                    return (
+                      <View key={`${scan.date}-${i}`} style={styles.barWrapper}>
+                        <View
+                          style={[
+                            styles.bar,
+                            {
+                              height: barHeight,
+                              backgroundColor: isLast ? '#5BA3D9' : '#C8DFF0',
+                            },
+                          ]}
+                        />
+                        <Text style={styles.barLabel}>
+                          {new Date(scan.date).getDate()}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </>
+            ) : (
+              <View style={styles.noScanState}>
+                <Text style={styles.noScanText}>아직 스캔 기록이 없어요</Text>
+                <TouchableOpacity
+                  style={styles.noScanCta}
+                  onPress={() => navigation.navigate('FaceScanner')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.noScanCtaText}>첫 스캔하기 →</Text>
+                </TouchableOpacity>
               </View>
             )}
-          </TouchableOpacity>
+          </View>
         )}
 
-        {/* ── SECTION 2: SKIN + LOOK TODAY ────────────────────────────── */}
+        {/* MEVE-253 — DNA summary card removed from home (lives in 나 tab now). */}
+
+
+        {/* ── SECTION 2: SKIN TODAY (SKIN mode only — full width) ───── */}
+        {mode === 'skin' && (
+        <>
         <Text style={styles.sectionTitle}>오늘의 체크인</Text>
         <View style={styles.dualRow}>
           {/* SKIN */}
@@ -765,41 +846,130 @@ export function HomeScreen() {
                   resizeMode="contain"
                 />
               </TouchableOpacity>
+
+              {/* MEVE-253 — routine steps preview (next slot's products) */}
+              {(() => {
+                // After AM is checked, surface PM; otherwise surface AM.
+                const stepsToShow = routine.am ? pmRoutineSteps : amRoutineSteps;
+                if (stepsToShow.length > 0) {
+                  const trimmed = stepsToShow.slice(0, 5);
+                  return (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.routineStepsRow}
+                    >
+                      {trimmed.map((step, i) => (
+                        <View key={`${step}-${i}`} style={styles.routineStepWrapper}>
+                          <View style={styles.routineStep}>
+                            <Text style={styles.routineStepText}>{step}</Text>
+                          </View>
+                          {i < trimmed.length - 1 && (
+                            <Text style={styles.routineStepArrow}>→</Text>
+                          )}
+                        </View>
+                      ))}
+                    </ScrollView>
+                  );
+                }
+                return (
+                  <TouchableOpacity
+                    style={styles.noRoutineCta}
+                    onPress={() => navigation.navigate('RoutineBuilder')}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.noRoutineCtaText}>
+                      ✨ AI가 내 맞춤 루틴 만들어줘 →
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })()}
             </LinearGradient>
           </View>
 
-          {/* LOOK */}
-          <View style={[styles.dualCardLayout, styles.dualCardShadow]}>
-            <LinearGradient
-              colors={['#FFFCFD', '#FFF4F9', '#FFE5F0']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.dualCardSurface, { borderColor: '#FFEEF5' }]}
+        </View>
+
+        {/* MEVE-250 — quick link to trouble check-in */}
+        <TouchableOpacity
+          style={styles.troubleLink}
+          onPress={() => navigation.navigate('TroubleCheckin')}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.troubleLinkText}>⚠️ 피부 뒤집어졌어요 →</Text>
+        </TouchableOpacity>
+
+        {/* MEVE-253 — quick log row (3 entry points) */}
+        <View style={styles.quickLogRow}>
+          <TouchableOpacity
+            style={styles.quickLogBtn}
+            onPress={() => navigation.navigate('TroubleCheckin')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.quickLogIcon}>⚠️</Text>
+            <Text style={styles.quickLogLabel}>트러블 기록</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickLogBtn}
+            onPress={() => navigation.navigate('SkinJournal')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.quickLogIcon}>📊</Text>
+            <Text style={styles.quickLogLabel}>라이프스타일</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickLogBtn}
+            onPress={() =>
+              navigation.navigate('ProductTracking', { mode: 'start' })
+            }
+            activeOpacity={0.85}
+          >
+            <Text style={styles.quickLogIcon}>🧴</Text>
+            <Text style={styles.quickLogLabel}>제품 추적</Text>
+          </TouchableOpacity>
+        </View>
+        </>
+        )}
+
+        {/* ── LOOK MODE HOME (MEVE-249) ───────────────────────────────── */}
+        {mode === 'look' && (
+          <>
+            <TouchableOpacity
+              style={styles.lookHeroCard}
+              onPress={() => navigation.navigate('TodaysLook')}
+              activeOpacity={0.9}
             >
-              <Image
-                source={require('../../../assets/images/look-title.png')}
-                style={styles.cardTitleImage}
-                resizeMode="contain"
-              />
-              <View style={styles.dualBodyBox}>
-                <Text style={styles.lookVibeText} numberOfLines={2}>
-                  {vibe ? `${vibe} 추구미` : '추구미를 선택해요'}
-                </Text>
-              </View>
+              <Text style={styles.lookHeroTitle}>오늘의 룩 💕</Text>
+              <Text style={styles.lookHeroSub}>
+                {eventType && ddayLeft != null
+                  ? `${eventType} D-${ddayLeft}을 위한 룩`
+                  : `${vibe ?? '글로우'} 추구미 룩`}
+              </Text>
+              <Text style={styles.lookHeroLink}>찾아보기 →</Text>
+            </TouchableOpacity>
+
+            {profilePersonalColor && (
               <TouchableOpacity
+                style={styles.lookMiniCard}
+                onPress={() => navigation.navigate('FaceAnalysis')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.lookMiniLabel}>내 퍼스널컬러</Text>
+                <Text style={styles.lookMiniValue}>{profilePersonalColor}</Text>
+              </TouchableOpacity>
+            )}
+
+            {profileVibe && (
+              <TouchableOpacity
+                style={styles.lookMiniCard}
                 onPress={() => navigation.navigate('Look')}
                 activeOpacity={0.85}
-                style={styles.imageButton}
               >
-                <Image
-                  source={require('../../../assets/images/btn-look-find.png')}
-                  style={styles.lookFindButtonImage}
-                  resizeMode="contain"
-                />
+                <Text style={styles.lookMiniLabel}>추구미 무드보드</Text>
+                <Text style={styles.lookMiniValue}>{profileVibe}</Text>
               </TouchableOpacity>
-            </LinearGradient>
-          </View>
-        </View>
+            )}
+          </>
+        )}
 
         {/* ── MEVE-246 NEW CARD 2: D-day 플랜 현재 단계 ─────────────────── */}
         {eventTheme && currentPhase && (
@@ -838,7 +1008,9 @@ export function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* ── SECTION 3: RECENT ACTIVITY HORIZONTAL SCROLL ────────────── */}
+        {/* ── SECTION 3: RECENT ACTIVITY (SKIN only) ──────────────────── */}
+        {mode === 'skin' && (
+        <>
         <Text style={styles.sectionTitle}>최근 활동</Text>
         <ScrollView
           horizontal
@@ -874,27 +1046,7 @@ export function HomeScreen() {
             </TouchableOpacity>
           </GlassCard>
 
-          {/* Card 2 — 오늘의 룩 미리보기 */}
-          <GlassCard
-            style={styles.hCardLayout}
-            contentStyle={styles.hCardContent}
-            radius={18}
-            padding={14}
-            sheenColors={['rgba(255,196,214,0.30)', 'rgba(255,255,255,0.20)']}
-          >
-            <View style={styles.hCardHeader}>
-              <BubbleIcon icon="sparkles" size={28} iconSize={14} colors={['#FFC4D6', '#FF6B9D']} />
-              <Text style={styles.hCardTitle}>오늘의 룩</Text>
-            </View>
-            <Text style={styles.hCardBody}>
-              {vibe
-                ? `${vibe} 추구미에 맞는 룩을 찾아볼까요?`
-                : '추구미를 선택하면 오늘의 룩을 추천해드려요'}
-            </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Look')}>
-              <Text style={[styles.hCardCta, { color: '#FF6B9D' }]}>LOOK에서 더 보기 →</Text>
-            </TouchableOpacity>
-          </GlassCard>
+          {/* MEVE-253 — Card 2 (오늘의 룩) moved into the LOOK-mode scroll. */}
 
           {/* Card 3 — 스킨 스코어 그래프 */}
           <GlassCard
@@ -931,43 +1083,7 @@ export function HomeScreen() {
             </TouchableOpacity>
           </GlassCard>
 
-          {/* Card 4 — 퍼스널 컬러 */}
-          <GlassCard
-            style={styles.hCardLayout}
-            contentStyle={styles.hCardContent}
-            radius={18}
-            padding={14}
-            sheenColors={['rgba(255,196,214,0.30)', 'rgba(196,184,232,0.20)']}
-          >
-            <View style={styles.hCardHeader}>
-              <BubbleIcon icon="color-filter" size={28} iconSize={14} colors={['#FFC4D6', '#C4B8E8']} />
-              <Text style={styles.hCardTitle}>퍼스널 컬러</Text>
-            </View>
-            {personalColor ? (
-              <>
-                <Text style={styles.hCardScore}>{personalColor}</Text>
-                {pcSwatches && (
-                  <View style={styles.swatchRow}>
-                    {pcSwatches.map((hex) => (
-                      <View
-                        key={hex}
-                        style={[styles.swatchDot, { backgroundColor: hex }]}
-                      />
-                    ))}
-                  </View>
-                )}
-              </>
-            ) : (
-              <Text style={styles.hCardBody}>
-                AI 얼굴 분석으로 퍼스널 컬러를 알아보세요
-              </Text>
-            )}
-            <TouchableOpacity onPress={() => navigation.navigate('Look')}>
-              <Text style={[styles.hCardCta, { color: '#FF6B9D' }]}>
-                {personalColor ? '다시 분석하기 →' : '얼굴 분석하기 →'}
-              </Text>
-            </TouchableOpacity>
-          </GlassCard>
+          {/* MEVE-253 — Card 4 (퍼스널 컬러) moved into the LOOK-mode scroll. */}
 
           {/* Card 5 — Scan Streak */}
           <GlassCard
@@ -1018,13 +1134,97 @@ export function HomeScreen() {
             </TouchableOpacity>
           )}
         </ScrollView>
+        </>
+        )}
+
+        {/* ── LOOK MODE ACTIVITY SCROLL (MEVE-253) ─────────────────────── */}
+        {mode === 'look' && (
+          <>
+            <Text style={styles.sectionTitle}>최근 활동</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hScrollContent}
+            >
+              <GlassCard
+                style={styles.hCardLayout}
+                contentStyle={styles.hCardContent}
+                radius={18}
+                padding={14}
+                sheenColors={['rgba(255,196,214,0.30)', 'rgba(255,255,255,0.20)']}
+              >
+                <View style={styles.hCardHeader}>
+                  <BubbleIcon
+                    icon="sparkles"
+                    size={28}
+                    iconSize={14}
+                    colors={['#FFC4D6', '#FF6B9D']}
+                  />
+                  <Text style={styles.hCardTitle}>오늘의 룩</Text>
+                </View>
+                <Text style={styles.hCardBody}>
+                  {vibe
+                    ? `${vibe} 추구미에 맞는 룩을 찾아볼까요?`
+                    : '추구미를 선택하면 오늘의 룩을 추천해드려요'}
+                </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('TodaysLook')}>
+                  <Text style={[styles.hCardCta, { color: '#FF6B9D' }]}>
+                    오늘의 룩 보기 →
+                  </Text>
+                </TouchableOpacity>
+              </GlassCard>
+
+              <GlassCard
+                style={styles.hCardLayout}
+                contentStyle={styles.hCardContent}
+                radius={18}
+                padding={14}
+                sheenColors={['rgba(255,196,214,0.30)', 'rgba(196,184,232,0.20)']}
+              >
+                <View style={styles.hCardHeader}>
+                  <BubbleIcon
+                    icon="color-filter"
+                    size={28}
+                    iconSize={14}
+                    colors={['#FFC4D6', '#C4B8E8']}
+                  />
+                  <Text style={styles.hCardTitle}>퍼스널 컬러</Text>
+                </View>
+                {personalColor ? (
+                  <>
+                    <Text style={styles.hCardScore}>{personalColor}</Text>
+                    {pcSwatches && (
+                      <View style={styles.swatchRow}>
+                        {pcSwatches.map((hex) => (
+                          <View
+                            key={hex}
+                            style={[styles.swatchDot, { backgroundColor: hex }]}
+                          />
+                        ))}
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <Text style={styles.hCardBody}>
+                    AI 얼굴 분석으로 퍼스널 컬러를 알아보세요
+                  </Text>
+                )}
+                <TouchableOpacity onPress={() => navigation.navigate('FaceAnalysis')}>
+                  <Text style={[styles.hCardCta, { color: '#FF6B9D' }]}>
+                    {personalColor ? '다시 분석하기 →' : '얼굴 분석하기 →'}
+                  </Text>
+                </TouchableOpacity>
+              </GlassCard>
+            </ScrollView>
+          </>
+        )}
 
         {/* ── MEVE-246 NEW CARD 4: 시술 추천 진입점 ──────────────────── */}
         {eventType && (
           <TouchableOpacity
             style={styles.treatmentEntryCard}
             onPress={() =>
-              navigation.navigate('TreatmentRecommend', { mode: 'skin' })
+              navigation.navigate('TreatmentRecommend', { mode })
             }
             activeOpacity={0.85}
           >
@@ -1041,37 +1241,7 @@ export function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* ── SECTION 5: 오늘의 팁 ───────────────────────────────────────── */}
-        <GlassCard
-          style={styles.tipCardLayout}
-          contentStyle={styles.tipCardContent}
-          radius={18}
-          padding={14}
-        >
-          <View style={styles.tipHeader}>
-            <BubbleIcon
-              icon={tipLabel === 'SKIN' ? 'water' : 'flower'}
-              size={28}
-              iconSize={14}
-              colors={
-                tipLabel === 'SKIN'
-                  ? ['#A8D5E8', '#5BA3D9']
-                  : ['#FFC4D6', '#FF6B9D']
-              }
-            />
-            <Text
-              style={[
-                styles.tipLabel,
-                { color: tipLabel === 'SKIN' ? '#5BA3D9' : '#FF6B9D' },
-              ]}
-            >
-              오늘의 {tipLabel} 팁
-            </Text>
-          </View>
-          <Text style={styles.tipBody}>
-            {eventTheme ? eventTheme.homeTip : tipText}
-          </Text>
-        </GlassCard>
+        {/* MEVE-253 — bottom tip card removed (moved to top tipBanner). */}
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -1733,4 +1903,186 @@ const styles = StyleSheet.create({
     color: '#FF6B9D',
     fontWeight: '700',
   },
+
+  // MEVE-249 — LOOK mode home cards
+  lookHeroCard: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 20,
+    backgroundColor: '#FFF0F5',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFC4D6',
+    gap: 4,
+  },
+  lookHeroTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1A1A2E',
+  },
+  lookHeroSub: {
+    fontSize: 13,
+    color: '#5A5A7A',
+    marginTop: 2,
+  },
+  lookHeroLink: {
+    fontSize: 13,
+    color: '#FF6B9D',
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  lookMiniCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 20,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    shadowColor: '#D0B0D8',
+    shadowOpacity: 0.10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  lookMiniLabel: {
+    fontSize: 12,
+    color: '#8A8A9A',
+    fontWeight: '500',
+  },
+  lookMiniValue: {
+    fontSize: 14,
+    color: '#FF6B9D',
+    fontWeight: '700',
+  },
+
+  // MEVE-250 — trouble check-in quick link
+  troubleLink: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    marginBottom: 12,
+    marginHorizontal: 20,
+  },
+  troubleLinkText: {
+    fontSize: 13,
+    color: '#FF8C69',
+    fontWeight: '600',
+  },
+
+  // MEVE-253 — top-of-feed tip banner
+  tipBanner: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 14,
+    padding: 14,
+  },
+  tipBannerSkin: { backgroundColor: '#E8F4FD' },
+  tipBannerLook: { backgroundColor: '#FFF0F5' },
+  tipBannerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8A8A9A',
+    marginBottom: 6,
+  },
+  tipBannerText: { fontSize: 14, color: '#1A1A2E', lineHeight: 22 },
+
+  // MEVE-253 — skin record card (replaces calendar)
+  skinRecordCard: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    shadowColor: '#B0B0B0',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  skinRecordHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  skinRecordTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  skinRecordLink: { fontSize: 13, color: '#5BA3D9', fontWeight: '600' },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  scoreLabel: { fontSize: 12, color: '#8A8A9A', marginBottom: 4 },
+  scoreValue: { fontSize: 28, fontWeight: '800', color: '#5BA3D9' },
+  scoreDiffBadge: {
+    backgroundColor: '#F5F5FA',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  scoreDiffText: { fontSize: 14, fontWeight: '700' },
+  miniChart: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+    height: 56,
+  },
+  barWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  bar: { width: '100%', borderRadius: 4 },
+  barLabel: { fontSize: 10, color: '#8A8A9A' },
+  noScanState: { alignItems: 'center', paddingVertical: 16 },
+  noScanText: { fontSize: 14, color: '#8A8A9A', marginBottom: 10 },
+  noScanCta: {
+    backgroundColor: '#5BA3D9',
+    borderRadius: 50,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  noScanCtaText: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
+
+  // MEVE-253 — routine step preview row
+  routineStepsRow: { marginTop: 12 },
+  routineStepWrapper: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  routineStep: {
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: '#E0E8F0',
+  },
+  routineStepText: { fontSize: 11, color: '#5A5A7A', fontWeight: '500' },
+  routineStepArrow: { fontSize: 10, color: '#C0C0CC' },
+  noRoutineCta: { marginTop: 10 },
+  noRoutineCtaText: { fontSize: 12, color: '#5BA3D9', fontWeight: '500' },
+
+  // MEVE-253 — 3 quick log entry buttons
+  quickLogRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
+  quickLogBtn: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 14,
+    paddingVertical: 14,
+    shadowColor: '#B0B0B0',
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  quickLogIcon: { fontSize: 24, marginBottom: 6 },
+  quickLogLabel: { fontSize: 11, color: '#5A5A7A', fontWeight: '600' },
 });

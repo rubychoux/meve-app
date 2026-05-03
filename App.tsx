@@ -6,6 +6,7 @@ import { useFonts } from 'expo-font';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { supabase } from './src/services/supabase';
 import { useBeautyProfile } from './src/stores/beautyProfileStore';
+import { useModeStore } from './src/stores/modeStore';
 
 // ─── App-wide NanumSquareRound font ────────────────────────────────────────────
 // Map every Text/TextInput's `fontWeight` to the matching NanumSquareRound
@@ -68,6 +69,8 @@ export default function App() {
   useEffect(() => {
     // Initial load (covers cold-start when session is already restored)
     loadProfile();
+    // MEVE-249 — restore last-used app mode (SKIN / LOOK).
+    useModeStore.getState().loadMode();
     // Re-load on sign-in / sign-out so the store stays in sync with auth.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       loadProfile();

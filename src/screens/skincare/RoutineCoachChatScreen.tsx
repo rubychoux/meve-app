@@ -19,13 +19,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../types';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
+import { useMode } from '../../stores/modeStore';
 import { getEventConfig } from '../../constants/eventConfig';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'RoutineCoachChat'>;
+type Route = RouteProp<MainStackParamList, 'RoutineCoachChat'>;
 
 const BLUE = '#5BA3D9';
 const STORAGE_KEY = 'meve_coach_messages';
@@ -60,10 +62,35 @@ ${profileContext}
 Personalize to their profile and event. Never diagnose medically.`;
 }
 
+// MEVE-253 — LOOK-mode coach prompt: stylist persona, scoped to beauty/style.
+function buildLookSystemPrompt(
+  profileContext: string,
+  personalColor: string | null,
+  vibe: string | null
+) {
+  return `당신은 meve의 AI 스타일 코치예요.
+퍼스널컬러, 메이크업, 룩, 추구미 관련 전문가로서 도움을 드려요.
+
+사용자 프로필:
+${profileContext}
+
+규칙:
+- 스타일·뷰티·메이크업 관련 질문에만 답하세요
+- 퍼스널컬러 (${personalColor ?? '미분석'}) 기반으로 조언하세요
+- 추구미 (${vibe ?? '미설정'}) 를 존중하세요
+- 한국어 해요체로 답하세요
+- 친근하고 스타일리시한 말투로, 2-4문장으로 답하세요`;
+}
+
 export function RoutineCoachChatScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  const globalMode = useMode();
+  const chatMode: 'skin' | 'look' = route.params?.mode ?? globalMode;
   const getProfileContext = useBeautyProfile((s) => s.getProfileContext);
   const profileEventType = useBeautyProfile((s) => s.eventType);
+  const profilePersonalColor = useBeautyProfile((s) => s.personalColor);
+  const profileVibe = useBeautyProfile((s) => s.vibe);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -132,7 +159,14 @@ export function RoutineCoachChatScreen() {
     setSending(true);
 
     try {
-      const systemPrompt = buildSystemPrompt(getProfileContext(), profileEventType);
+      const systemPrompt =
+        chatMode === 'look'
+          ? buildLookSystemPrompt(
+              getProfileContext(),
+              profilePersonalColor,
+              profileVibe
+            )
+          : buildSystemPrompt(getProfileContext(), profileEventType);
       const gptMessages = [
         { role: 'system', content: systemPrompt },
         ...nextHistory.map((m) => ({ role: m.role, content: m.content })),

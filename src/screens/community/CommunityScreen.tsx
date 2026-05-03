@@ -25,6 +25,8 @@ import { CompositeNavigationProp } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 import { MEVE_GRADIENT_SIMPLE } from '../../constants/theme';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
+import { useMode } from '../../stores/modeStore';
+import { ModeToggle } from '../../components/ui/ModeToggle';
 import {
   MainStackParamList,
   MainTabParamList,
@@ -124,6 +126,10 @@ type FilterKey = 'event' | 'skin' | 'color' | 'vibe' | 'face';
 
 export function CommunityScreen() {
   const navigation = useNavigation<Nav>();
+
+  // MEVE-249 — global SKIN/LOOK mode controls which filter category is
+  // pre-expanded in the 전체 tab.
+  const mode = useMode();
 
   const [feedTab, setFeedTab] = useState<FeedTab>('mine');
 
@@ -366,6 +372,13 @@ export function CommunityScreen() {
     }, [storeLoadProfile, fetchUnreadCount, fetchDisplayName])
   );
 
+  // MEVE-249 — mode-aware default filter category in the 전체 tab.
+  // SKIN mode pre-expands 피부, LOOK mode pre-expands 컬러.
+  useEffect(() => {
+    if (feedTab !== 'all') return;
+    setExpandedFilter(mode === 'skin' ? 'skin' : 'color');
+  }, [mode, feedTab]);
+
   useEffect(() => {
     if (profileLoaded) {
       setLoading(true);
@@ -431,7 +444,7 @@ export function CommunityScreen() {
     } catch {}
   };
 
-  const goSkin = () => navigation.navigate('MainTabs', { screen: 'Skin' } as any);
+  const goSkin = () => navigation.navigate('MainTabs', { screen: 'Scan' } as any);
   const goLook = () => navigation.navigate('FaceAnalysis');
 
   // ── Derived ──────────────────────────────────────────────────────────────
@@ -715,6 +728,9 @@ export function CommunityScreen() {
       </View>
 
       {renderHeroCard()}
+
+      {/* MEVE-249 — global mode toggle */}
+      <ModeToggle />
 
       {/* Feed tabs */}
       <View style={styles.feedTabContainer}>

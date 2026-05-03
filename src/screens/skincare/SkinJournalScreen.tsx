@@ -494,6 +494,41 @@ function TodayLogTab() {
         )}
       </TouchableOpacity>
 
+      {/* MEVE-250 — Trouble check-in entry point */}
+      <TouchableOpacity
+        style={styles.troubleCheckinCard}
+        onPress={() => navigation.navigate('TroubleCheckin')}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.troubleCheckinIcon}>⚠️</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.troubleCheckinTitle}>트러블 기록하기</Text>
+          <Text style={styles.troubleCheckinSub}>
+            피부가 안 좋아졌을 때 원인을 찾아봐요
+          </Text>
+        </View>
+        <Text style={styles.troubleCheckinArrow}>→</Text>
+      </TouchableOpacity>
+
+      {/* MEVE-252 — Product tracking entry point */}
+      <TouchableOpacity
+        style={[
+          styles.troubleCheckinCard,
+          { borderColor: '#C4D8F0', backgroundColor: '#EEF6FF' },
+        ]}
+        onPress={() => navigation.navigate('ProductTracking', { mode: 'start' })}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.troubleCheckinIcon}>🧴</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.troubleCheckinTitle}>새 제품 추적 시작</Text>
+          <Text style={styles.troubleCheckinSub}>
+            새 제품 쓰기 시작했을 때 기록해요
+          </Text>
+        </View>
+        <Text style={[styles.troubleCheckinArrow, { color: '#5BA3D9' }]}>→</Text>
+      </TouchableOpacity>
+
       {/* SECTION 2 — Self check */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>오늘 피부 자가 체크</Text>
@@ -1108,6 +1143,7 @@ interface ScorePoint {
 type GraphPeriod = 30 | 90 | 9999;
 
 function ProgressGraphTab() {
+  const navigation = useNavigation<Nav>();
   const profile = useBeautyProfile();
   const { width: winWidth } = useWindowDimensions();
 
@@ -1281,6 +1317,20 @@ Return ONLY valid JSON (no markdown):
 
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
+      {/* MEVE-251 — AI cause analysis entry point */}
+      <TouchableOpacity
+        style={styles.analysisBtn}
+        onPress={() => navigation.navigate('TroubleAnalysis')}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.analysisBtnIcon}>📊</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.analysisBtnTitle}>AI 원인 분석 보기</Text>
+          <Text style={styles.analysisBtnSub}>최근 7일 데이터 종합 분석</Text>
+        </View>
+        <Text style={styles.analysisBtnArrow}>→</Text>
+      </TouchableOpacity>
+
       {/* Period selector */}
       <View style={styles.periodRow}>
         {[
@@ -2187,4 +2237,41 @@ const styles = StyleSheet.create({
   },
   timelineItemDate: { fontSize: 11, color: '#8A8A9A' },
   timelineItemDetail: { fontSize: 12, color: '#5A5A7A', lineHeight: 17 },
+
+  // MEVE-250 — trouble check-in entry card
+  troubleCheckinCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F0',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#FFD4C0',
+    gap: 12,
+  },
+  troubleCheckinIcon: { fontSize: 28 },
+  troubleCheckinTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  troubleCheckinSub: { fontSize: 12, color: '#8A8A9A', marginTop: 2 },
+  troubleCheckinArrow: {
+    fontSize: 18,
+    color: '#FF8C69',
+    marginLeft: 'auto',
+  },
+
+  // MEVE-251 — AI cause analysis entry button (변화 그래프 탭)
+  analysisBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F4FD',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  analysisBtnIcon: { fontSize: 28 },
+  analysisBtnTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  analysisBtnSub: { fontSize: 12, color: '#8A8A9A', marginTop: 2 },
+  analysisBtnArrow: { fontSize: 18, color: '#5BA3D9', marginLeft: 'auto' },
 });
