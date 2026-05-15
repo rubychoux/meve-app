@@ -39,7 +39,7 @@ type Nav = NativeStackNavigationProp<MainStackParamList, 'TreatmentRecommend'>;
 type Rt = RouteProp<MainStackParamList, 'TreatmentRecommend'>;
 
 const PINK = '#FF6B9D';
-const SKY = '#5BA3D9';
+const SKY = '#2D3A6B';
 
 type TreatmentMode = 'concern' | 'general' | 'dday' | null;
 type Step = 1 | 2 | 3;
@@ -118,6 +118,28 @@ export function TreatmentRecommendScreen() {
     created_at: string | null;
   } | null>(null);
   const [scanFetching, setScanFetching] = useState(true);
+  const [displayName, setDisplayName] = useState<string>('회원');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('display_name')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (!cancelled && data?.display_name) {
+          setDisplayName(data.display_name);
+        }
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -245,7 +267,8 @@ Face analysis results:
         })
         .join(', ');
 
-      return `You are a Korean skincare and aesthetic treatment advisor.
+      return `사용자 이름: ${displayName}님
+You are a Korean skincare and aesthetic treatment advisor.
 The user has selected SPECIFIC concerns they want help with.
 
 CRITICAL RULES:
@@ -274,7 +297,7 @@ Recommend 3 treatments focused ONLY on these concerns.
 
 Return ONLY valid JSON (no markdown):
 {
-  "intro": "따뜻하고 격려하는 인트로 1-2줄 (해요체). 유저가 선택한 것에 대한 공감.",
+  "intro": "반드시 '${displayName}님'으로 시작하는 따뜻한 인트로 1-2줄 (해요체). 스캔 데이터를 언급하며 개인화된 느낌을 줄 것. 유저가 선택한 것에 대한 공감 포함.",
   "recommendations": [
     {
       "name": "시술명",
@@ -292,7 +315,8 @@ Return ONLY valid JSON (no markdown):
     }
 
     if (mode === 'general') {
-      return `You are a Korean skincare advisor helping someone who wants to feel their best overall.
+      return `사용자 이름: ${displayName}님
+You are a Korean skincare advisor helping someone who wants to feel their best overall.
 
 CRITICAL RULES:
 - Frame recommendations as "피부 건강과 컨디션을 높이는 방법"
@@ -315,7 +339,7 @@ Recommend 3 treatments for overall skin health and radiance.
 
 Return ONLY valid JSON (no markdown):
 {
-  "intro": "따뜻한 인트로 1-2줄 (해요체). 피부 건강과 빛남에 집중.",
+  "intro": "반드시 '${displayName}님'으로 시작하는 따뜻한 인트로 1-2줄 (해요체). 스캔 데이터를 언급하며 개인화된 느낌을 줄 것. 피부 건강과 빛남에 집중.",
   "recommendations": [
     {
       "name": "시술명",
@@ -333,7 +357,8 @@ Return ONLY valid JSON (no markdown):
     }
 
     // dday
-    return `You are a Korean skincare advisor helping someone prepare for a special event.
+    return `사용자 이름: ${displayName}님
+You are a Korean skincare advisor helping someone prepare for a special event.
 
 CRITICAL RULES:
 - Focus on achieving the BEST CONDITION for the event day
@@ -355,7 +380,7 @@ Focus on timing-appropriate recommendations for D-${daysLeft ?? '?'}.
 
 Return ONLY valid JSON (no markdown):
 {
-  "intro": "이벤트를 위한 설레는 인트로 1-2줄 (해요체)",
+  "intro": "반드시 '${displayName}님'으로 시작하는 설레는 인트로 1-2줄 (해요체). 스캔 데이터를 언급하며 개인화된 느낌을 줄 것. 이벤트 준비 컨텍스트 포함.",
   "recommendations": [
     {
       "name": "시술 또는 케어명",
@@ -438,6 +463,10 @@ Return ONLY valid JSON (no markdown):
             onNext={handleNextFromStep1}
             scanFetching={scanFetching}
             hasScanData={!!latestScanDetail}
+            displayName={displayName}
+            lastSkinScore={profile.lastSkinScore}
+            skinType={profile.skinType}
+            personalColor={profile.personalColor}
           />
         )}
 
@@ -448,6 +477,16 @@ Return ONLY valid JSON (no markdown):
             otherConcern={otherConcern}
             setOtherConcern={setOtherConcern}
             onNext={generateRecommendations}
+            displayName={displayName}
+            lastSkinScore={profile.lastSkinScore}
+            skinType={profile.skinType}
+            personalColor={profile.personalColor}
+            firstConcern={
+              Array.isArray(latestScanDetail?.concerns) &&
+              (latestScanDetail!.concerns as unknown[]).length > 0
+                ? String((latestScanDetail!.concerns as unknown[])[0])
+                : null
+            }
           />
         )}
 
@@ -456,6 +495,7 @@ Return ONLY valid JSON (no markdown):
             loading={loading}
             result={result}
             onRestart={handleRestart}
+            displayName={displayName}
           />
         )}
       </KeyboardAvoidingView>
@@ -509,6 +549,10 @@ function Step1({
   onNext,
   scanFetching,
   hasScanData,
+  displayName,
+  lastSkinScore,
+  skinType,
+  personalColor,
 }: {
   mode: TreatmentMode;
   setMode: (m: TreatmentMode) => void;
@@ -518,18 +562,32 @@ function Step1({
   onNext: () => void;
   scanFetching: boolean;
   hasScanData: boolean;
+  displayName: string;
+  lastSkinScore: number | null;
+  skinType: string | null;
+  personalColor: string | null;
 }) {
+  // Build personalized subtitle: "{name}님의 스킨 스코어 NN점 · {skinType} · {personalColor}을 기반으로 추천해드려요"
+  const subtitleParts: string[] = [];
+  if (lastSkinScore != null) subtitleParts.push(`스킨 스코어 ${lastSkinScore}점`);
+  if (skinType) subtitleParts.push(skinType);
+  if (personalColor) subtitleParts.push(personalColor);
+  const subtitleSuffix =
+    subtitleParts.length > 0
+      ? `${subtitleParts.join(' · ')}을 기반으로 추천해드려요`
+      : '프로필을 기반으로 추천해드려요';
+
   return (
     <ScrollView contentContainerStyle={styles.step1Container}>
       <Text style={styles.step1Title}>어떤 도움이 필요해요? ✨</Text>
       <Text style={styles.step1Subtitle}>
-        당신이 원하는 것에만 집중해드려요
+        {displayName}님의 {subtitleSuffix}
       </Text>
 
       <Step1Option
         emoji="🎯"
         title="특별히 신경 쓰이는 게 있어요"
-        desc="내가 직접 고른 부분만 집중해서 알아봐요"
+        desc={`${displayName}님이 선택한 부분만 집중 분석해드려요`}
         selected={mode === 'concern'}
         onPress={() => setMode('concern')}
       />
@@ -537,7 +595,7 @@ function Step1({
       <Step1Option
         emoji="✨"
         title="전체적으로 더 빛나고 싶어요"
-        desc="피부 상태 기반으로 전반적인 케어 방법을 알아봐요"
+        desc={`스킨 스코어 ${lastSkinScore ?? '?'}점 기준으로 전반적인 피부 케어를 추천해드려요`}
         selected={mode === 'general'}
         onPress={() => setMode('general')}
       />
@@ -548,7 +606,7 @@ function Step1({
           title={`${eventType}을 위해 최상의 컨디션으로`}
           desc={
             daysLeft != null
-              ? `D-${daysLeft}까지 케어 중심으로 준비해봐요`
+              ? `${eventType} D-${daysLeft}까지 최상의 컨디션을 만드는 케어를 알아봐요`
               : '특별한 날을 위해 준비해봐요'
           }
           selected={mode === 'dday'}
@@ -615,17 +673,30 @@ function Step2({
   otherConcern,
   setOtherConcern,
   onNext,
+  displayName,
+  lastSkinScore,
+  skinType,
+  personalColor,
+  firstConcern,
 }: {
   selectedConcerns: string[];
   toggleConcern: (id: string) => void;
   otherConcern: string;
   setOtherConcern: (v: string) => void;
   onNext: () => void;
+  displayName: string;
+  lastSkinScore: number | null;
+  skinType: string | null;
+  personalColor: string | null;
+  firstConcern: string | null;
 }) {
   const otherSelected = selectedConcerns.includes('other');
   const canProceed =
     selectedConcerns.length > 0 &&
     (!otherSelected || otherConcern.trim().length > 0);
+
+  const hasAnyScanData =
+    lastSkinScore != null || !!skinType || !!personalColor || !!firstConcern;
 
   return (
     <ScrollView
@@ -636,6 +707,42 @@ function Step2({
       <Text style={styles.step2Subtitle}>
         선택한 부분만 살펴볼게요. 여러 개 선택해도 돼요 🙂
       </Text>
+
+      {hasAnyScanData && (
+        <View style={styles.scanDataBadge}>
+          <Text style={styles.scanDataBadgeTitle}>
+            📊 {displayName}님의 최근 스캔 데이터 기준
+          </Text>
+          <View style={styles.scanDataRow}>
+            {lastSkinScore != null && (
+              <View style={styles.scanDataItem}>
+                <Text style={styles.scanDataValue}>{lastSkinScore}점</Text>
+                <Text style={styles.scanDataLabel}>스킨 스코어</Text>
+              </View>
+            )}
+            {skinType && (
+              <View style={styles.scanDataItem}>
+                <Text style={styles.scanDataValue}>{skinType}</Text>
+                <Text style={styles.scanDataLabel}>피부 타입</Text>
+              </View>
+            )}
+            {personalColor && (
+              <View style={styles.scanDataItem}>
+                <Text style={styles.scanDataValue}>{personalColor}</Text>
+                <Text style={styles.scanDataLabel}>퍼스널컬러</Text>
+              </View>
+            )}
+            {firstConcern && (
+              <View style={styles.scanDataItem}>
+                <Text style={styles.scanDataValue} numberOfLines={1}>
+                  {firstConcern}
+                </Text>
+                <Text style={styles.scanDataLabel}>주요 고민</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
 
       <View style={styles.concernGrid}>
         {CONCERN_OPTIONS.map((concern) => {
@@ -695,10 +802,12 @@ function Step3({
   loading,
   result,
   onRestart,
+  displayName,
 }: {
   loading: boolean;
   result: TreatmentResult | null;
   onRestart: () => void;
+  displayName: string;
 }) {
   if (loading) {
     return (
@@ -728,6 +837,7 @@ function Step3({
     <ScrollView contentContainerStyle={styles.step3Container}>
       {!!result.intro && (
         <View style={styles.introCard}>
+          <Text style={styles.introName}>{displayName}님 맞춤 분석 결과</Text>
           <Text style={styles.introText}>{result.intro}</Text>
         </View>
       )}
@@ -806,7 +916,7 @@ function TreatmentCard({ item }: { item: TreatmentRecommendation }) {
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFBFC' },
+  safe: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -817,7 +927,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     flex: 1,
     textAlign: 'center',
   },
@@ -872,7 +982,7 @@ const styles = StyleSheet.create({
   step1Title: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginTop: 12,
     marginBottom: 6,
     textAlign: 'center',
@@ -881,7 +991,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#8A8A9A',
     textAlign: 'center',
-    marginBottom: 24,
+    marginTop: 6,
+    marginBottom: 20,
+    lineHeight: 20,
   },
   optionCard: {
     flexDirection: 'row',
@@ -907,7 +1019,7 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 3,
   },
   optionDesc: { fontSize: 12, color: '#8A8A9A', lineHeight: 18 },
@@ -936,7 +1048,7 @@ const styles = StyleSheet.create({
   step2Title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginTop: 12,
     marginBottom: 6,
   },
@@ -976,7 +1088,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     fontSize: 14,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 12,
     backgroundColor: '#FFFFFF',
   },
@@ -1006,7 +1118,52 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: PINK,
   },
-  introText: { fontSize: 14, color: '#1A1A2E', lineHeight: 21 },
+  introName: {
+    fontSize: 12,
+    color: PINK,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  introText: { fontSize: 14, color: '#1A1A1F', lineHeight: 21 },
+
+  // Scan data badge (Step 2)
+  scanDataBadge: {
+    backgroundColor: '#E8F4FD',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2D3A6B',
+  },
+  scanDataBadgeTitle: {
+    fontSize: 12,
+    color: '#2D3A6B',
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  scanDataRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  scanDataItem: {
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: 'center',
+    minWidth: 60,
+  },
+  scanDataValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1A1A1F',
+  },
+  scanDataLabel: {
+    fontSize: 10,
+    color: '#8A8A9A',
+    marginTop: 1,
+  },
 
   treatmentCard: {
     backgroundColor: 'rgba(255,255,255,0.9)',
@@ -1031,13 +1188,13 @@ const styles = StyleSheet.create({
   treatmentName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 2,
   },
   treatmentTarget: { fontSize: 12, color: '#8A8A9A', marginBottom: 8 },
   effectText: {
     fontSize: 14,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     lineHeight: 22,
     marginBottom: 12,
   },
@@ -1049,7 +1206,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   infoLabel: { fontSize: 10, color: '#8A8A9A', marginBottom: 2 },
-  infoValue: { fontSize: 12, color: '#1A1A2E', fontWeight: '600' },
+  infoValue: { fontSize: 12, color: '#1A1A1F', fontWeight: '600' },
   cautionText: { fontSize: 12, color: '#FFB347', marginBottom: 12 },
   clinicBtn: {
     backgroundColor: '#E8F4FD',

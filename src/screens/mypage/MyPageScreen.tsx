@@ -1,27 +1,46 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  Linking,
-} from 'react-native';
+/**
+ * MyPageScreen — v1.5 redesign.
+ *
+ * 백업: MyPageScreen.backup.tsx (1022-line original)
+ *
+ * 새 구조:
+ *   1. 상단 Row — "My page" + close (goBack)
+ *   2. 프로필 — avatar (gradient + initial + ShimmerSweep) + name + email + Free/Premium badge
+ *   3. DNA 카드 — 타입별 그라데이션 + 태그 라인 → FaceAnalysis
+ *   4. Premium 카드 — 상태 rows + GradientPill → Paywall
+ *   5. My beauty — 위시리스트 / 최근 본 / 스캔 이력
+ *   6. Settings — 프로필 수정 / 알림 / 개인정보 / 약관
+ *   7. 로그아웃
+ *
+ * 보존된 logic:
+ *   - displayName / email / isPremium / scans loadProfile (Supabase + AsyncStorage)
+ *   - useFocusEffect re-fetch
+ *   - signOut handler (Alert 확인 → supabase.auth.signOut + store signOut)
+ *   - navigate: ProfileEdit / NotificationSettings / PrivacyPolicy / TermsOfService
+ *   - navigate: Paywall { source: 'mypage_card' } / FaceAnalysis / SkinJournal
+ */
 
-const logo = require('../../../assets/images/meve-logo.png');
+import React, { ReactNode, useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../services/supabase';
 import { useAuthStore } from '../../store';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
 import { MainStackParamList, ScanAnalysisResult } from '../../types';
+import { colors, BeautyTypeCode } from '../../theme';
+import { GradientPill, ShimmerSweep } from '../../components/signature';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
@@ -31,58 +50,85 @@ interface ScanRow {
   scan_result: ScanAnalysisResult;
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-}
+// ─── Helper: gradient icon box ───────────────────────────────────────────────
 
-function scoreColor(score: number): string {
-  if (score >= 80) return Colors.success;
-  if (score >= 60) return Colors.warning;
-  return Colors.danger;
-}
-
-const FEATURES = [
-  { label: 'AI 피부 스캔', free: '월 3회', premium: '무제한' },
-  { label: '성분 스캔', free: '월 5회', premium: '무제한' },
-  { label: '맞춤 성분 분석', free: 'X', premium: 'O' },
-  { label: 'AI 루틴 생성', free: 'X', premium: 'O' },
-  { label: 'D-day 케어 플랜', free: 'X', premium: 'O' },
-];
-
-const MENU_ITEMS: {
+interface IconBoxProps {
+  gradient: readonly [string, string];
   icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  danger?: boolean;
   iconColor?: string;
-  subtitle?: string;
-}[] = [
-  { icon: 'person-outline', label: '프로필 수정' },
-  { icon: 'notifications-outline', label: '알림 설정' },
-  { icon: 'shield-outline', label: '개인정보 처리방침' },
-  { icon: 'document-text-outline', label: '이용약관' },
-  {
-    icon: 'chatbubble-outline',
-    label: '문의하기',
-    iconColor: '#5BA3D9',
-    subtitle: '불편한 점이나 개선사항을 알려주세요',
-  },
-  { icon: 'log-out-outline', label: '로그아웃', danger: true },
-];
+  size?: number;
+}
+const IconBox: React.FC<IconBoxProps> = ({
+  gradient,
+  icon,
+  iconColor = '#FFFFFF',
+  size = 34,
+}) => (
+  <View
+    style={{
+      width: size,
+      height: size,
+      borderRadius: 10,
+      overflow: 'hidden',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+  >
+    <LinearGradient
+      colors={gradient}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={StyleSheet.absoluteFill}
+    />
+    <Ionicons name={icon} size={size * 0.5} color={iconColor} />
+  </View>
+);
+
+// Plain (non-gradient) icon box for Settings rows
+const PlainIconBox: React.FC<{ icon: keyof typeof Ionicons.glyphMap }> = ({ icon }) => (
+  <View style={styles.plainIconBox}>
+    <Ionicons name={icon} size={16} color="#8E8E93" />
+  </View>
+);
+
+interface MenuRowProps {
+  left: ReactNode;
+  title: string;
+  desc?: string;
+  onPress: () => void;
+}
+const MenuRow: React.FC<MenuRowProps> = ({ left, title, desc, onPress }) => (
+  <TouchableOpacity style={styles.menuRow} onPress={onPress} activeOpacity={0.85}>
+    {left}
+    <View style={styles.menuRowText}>
+      <Text style={styles.menuRowTitle}>{title}</Text>
+      {desc && <Text style={styles.menuRowDesc}>{desc}</Text>}
+    </View>
+    <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
+  </TouchableOpacity>
+);
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export function MyPageScreen() {
   const navigation = useNavigation<Nav>();
   const { signOut } = useAuthStore();
 
+  // Beauty profile (for DNA card)
+  const beautyType = useBeautyProfile((s) => s.beautyType);
+  const skinType = useBeautyProfile((s) => s.skinType);
+  const personalColor = useBeautyProfile((s) => s.personalColor);
+  const faceShape = useBeautyProfile((s) => s.faceShape);
+  const vibe = useBeautyProfile((s) => s.vibe);
+
+  // Preserved state
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
   const [scans, setScans] = useState<ScanRow[]>([]);
-  const [showAllScans, setShowAllScans] = useState(false);
-  const SCAN_PREVIEW_COUNT = 3;
 
+  // ── loadProfile (preserved from backup) ──────────────────────────────────
   const loadProfile = async () => {
-    // Premium status (cheap — no auth call)
     try {
       const raw = await AsyncStorage.getItem('meve_is_premium');
       if (raw === 'true') setIsPremium(true);
@@ -100,15 +146,12 @@ export function MyPageScreen() {
     if (profile?.display_name) {
       setDisplayName(profile.display_name);
     } else {
-      // Fallback to a locally cached name (e.g. just-saved edit before
-      // Supabase propagation completes).
       try {
         const cached = await AsyncStorage.getItem('meve_display_name');
         if (cached) setDisplayName(cached);
       } catch {}
     }
 
-    // Scan history
     const { data: scanData } = await supabase
       .from('skin_scans')
       .select('id, created_at, scan_result')
@@ -121,13 +164,13 @@ export function MyPageScreen() {
     loadProfile();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-fetch on focus so profile edits propagate immediately.
   useFocusEffect(
     useCallback(() => {
       loadProfile();
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    }, []), // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  // ── Handlers ─────────────────────────────────────────────────────────────
   const handleLogout = () => {
     Alert.alert('로그아웃', '정말 로그아웃할까요?', [
       { text: '취소', style: 'cancel' },
@@ -142,259 +185,206 @@ export function MyPageScreen() {
     ]);
   };
 
-  const handleContact = () => {
-    Alert.alert('문의하기', '어떤 방법으로 문의하시겠어요?', [
-      {
-        text: '이메일로 문의',
-        onPress: () =>
-          Linking.openURL(
-            'mailto:chouxxkim@gmail.com?subject=meve 앱 문의&body=문의 내용을 입력해주세요.'
-          ),
-      },
-      { text: '취소', style: 'cancel' },
-    ]);
-  };
+  // Navigate handlers (preserved targets)
+  const goEdit        = () => navigation.navigate('ProfileEdit');
+  const goNotifs      = () => navigation.navigate('NotificationSettings');
+  const goPrivacy     = () => navigation.navigate('PrivacyPolicy');
+  const goTerms       = () => navigation.navigate('TermsOfService');
+  const goPaywall     = () => navigation.navigate('Paywall', { source: 'mypage_card' });
+  const goScanHist    = () => navigation.navigate('SkinJournal');
+  const goDnaDetail   = () => navigation.navigate('FaceAnalysis');
+  const todoPlaceholder = () =>
+    Alert.alert('준비 중', '곧 추가될 예정이에요!');
 
-  const handleMenuPress = (label: string) => {
-    switch (label) {
-      case '프로필 수정':
-        navigation.navigate('ProfileEdit');
-        return;
-      case '알림 설정':
-        navigation.navigate('NotificationSettings');
-        return;
-      case '개인정보 처리방침':
-        navigation.navigate('PrivacyPolicy');
-        return;
-      case '이용약관':
-        navigation.navigate('TermsOfService');
-        return;
-      case '문의하기':
-        handleContact();
-        return;
-      case '로그아웃':
-        handleLogout();
-        return;
-      default:
-        Alert.alert('준비 중', '이 기능은 곧 추가될 예정이에요!');
-    }
-  };
+  // ── Derived ──────────────────────────────────────────────────────────────
+  const dnaCode = (beautyType as BeautyTypeCode | null) ?? 'GCS';
+  const dnaInfo = colors.types[dnaCode];
+  const initialChar = (displayName || '?').charAt(0).toUpperCase();
+
+  // Monthly scan count for free-tier display
+  const now = new Date();
+  const monthlyScanCount = scans.filter((s) => {
+    const d = new Date(s.created_at);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+
+  // DNA card tags (only show valid values)
+  const tags = [personalColor, faceShape, skinType, vibe].filter(
+    (v): v is string => !!v && v.trim() !== '',
+  );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.screenHeader}>
-          <Image source={logo} style={styles.headerLogo} />
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* ── 1. Top row ────────────────────────────────────────────────── */}
+        <View style={styles.topRow}>
+          <Text style={styles.title}>My page</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+            <Ionicons name="close" size={22} color="#2D3A6B" />
+          </TouchableOpacity>
         </View>
 
-        {/* ── 1. PROFILE HEADER ──────────────────────────────────────────── */}
-        <View style={styles.profileHeader}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={36} color="#fff" />
-          </View>
-          <Text style={styles.displayName}>{displayName || '회원'}님</Text>
-          {email && <Text style={styles.email}>{email}</Text>}
-          <View style={[styles.planBadge, isPremium && styles.planBadgePremium]}>
-            <Text style={[styles.planBadgeText, isPremium && styles.planBadgeTextPremium]}>
-              {isPremium ? 'Premium' : 'Free'}
-            </Text>
-          </View>
-        </View>
-
-        {/* ── 2. BEAUTY DNA ───────────────────────────────────────────────── */}
-        <BeautyDnaCard
-          onFaceAnalysis={() => navigation.navigate('FaceAnalysis')}
-          onSkinScan={() => (navigation as any).navigate('Scan')}
-        />
-
-        {/* ── 3. PLAN CARD (if not premium) ──────────────────────────────── */}
-        {!isPremium && (
-          <View style={styles.planCard}>
-            <Text style={styles.planTitle}>meve 프리미엄</Text>
-            <Text style={styles.planSubtitle}>
-              D-day까지 완벽한 피부를 위한 모든 기능
-            </Text>
-
-            {/* Feature table */}
-            <View style={styles.featureTable}>
-              {/* Header */}
-              <View style={styles.featureHeaderRow}>
-                <Text style={[styles.featureCell, styles.featureCellLabel]}>기능</Text>
-                <Text style={[styles.featureCell, styles.featureCellHeader]}>Free</Text>
-                <Text style={[styles.featureCell, styles.featureCellHeader, { color: Colors.accent, fontWeight: '600' }]}>
-                  Premium
-                </Text>
-              </View>
-
-              {/* Rows */}
-              {FEATURES.map((f, i) => (
-                <View
-                  key={i}
-                  style={[styles.featureRow, i < FEATURES.length - 1 && styles.featureRowBorder]}
-                >
-                  <Text style={[styles.featureCell, styles.featureCellLabel, { color: Colors.textPrimary, fontSize: 13 }]}>
-                    {f.label}
-                  </Text>
-                  <Text style={[styles.featureCell, styles.featureCellValue]}>{f.free}</Text>
-                  <Text
-                    style={[
-                      styles.featureCell,
-                      styles.featureCellValue,
-                      { color: f.premium === 'O' || f.premium === '무제한' ? Colors.accent : '#999', fontWeight: '600' },
-                    ]}
-                  >
-                    {f.premium}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            {/* CTA */}
+        {/* ── 2. Profile ────────────────────────────────────────────────── */}
+        <View style={styles.profileSection}>
+          <View style={styles.avatarWrap}>
             <LinearGradient
-              colors={['#F9C4D8', '#E8B4E8', '#C4B8E8', '#B8D4F0']}
+              colors={['#FFD4DC', '#E4D4FF']}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.ctaGradient}
-            >
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate('Paywall', { source: 'mypage_card' })
-                }
-                style={styles.ctaBtn}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.ctaBtnTitle}>프리미엄 시작하기</Text>
-                <Text style={styles.ctaBtnPrice}>월 9,900원</Text>
-              </TouchableOpacity>
-            </LinearGradient>
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <ShimmerSweep duration={4500} widthRatio={0.4} />
+            <Text style={styles.avatarChar}>{initialChar}</Text>
           </View>
-        )}
-
-        {/* ── 2.5 DERMATOLOGY REFERRAL ───────────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>피부과 상담하기</Text>
-          <View style={styles.referralCard}>
-            <Text style={styles.referralDesc}>
-              제휴 피부과에서 상담 예약을 진행할 수 있어요.
-            </Text>
-
-            {[
-              { name: '제휴 피부과 A', phone: '0212345678', url: 'https://example.com/clinic-a' },
-              { name: '제휴 피부과 B', phone: '0211122233', url: 'https://example.com/clinic-b' },
-              { name: '제휴 피부과 C', phone: '0255556666', url: 'https://example.com/clinic-c' },
-            ].map((c) => (
-              <View key={c.name} style={styles.clinicRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.clinicName}>{c.name}</Text>
-                  <Text style={styles.clinicSub}>예약 링크 또는 전화 연결</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.clinicBtn}
-                  onPress={() => Linking.openURL(c.url)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.clinicBtnText}>예약</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.clinicBtn, styles.clinicBtnOutline]}
-                  onPress={() => Linking.openURL(`tel:${c.phone}`)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.clinicBtnText, styles.clinicBtnTextOutline]}>전화</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
+          <Text style={styles.name}>{displayName || '회원'}님</Text>
+          {email && <Text style={styles.email}>{email}</Text>}
+          <View style={[styles.badge, isPremium && styles.badgePremiumWrap]}>
+            {isPremium ? (
+              <LinearGradient
+                colors={['#FFD4DC', '#E4D4FF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+            ) : null}
+            <Text style={styles.badgeText}>{isPremium ? 'Premium' : 'Free'}</Text>
           </View>
         </View>
 
-        {/* ── 3. SCAN HISTORY ────────────────────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>내 스캔 이력</Text>
-          {scans.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="heart-outline" size={32} color={Colors.accentMuted} />
-              <Text style={styles.emptyText}>
-                아직 스캔 기록이 없어요.{'\n'}AI 스캐너로 첫 진단을 시작해보세요!
+        {/* ── 3. DNA card ───────────────────────────────────────────────── */}
+        <TouchableOpacity
+          onPress={goDnaDetail}
+          style={styles.dnaCard}
+          activeOpacity={0.9}
+        >
+          <LinearGradient
+            colors={dnaInfo.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <ShimmerSweep duration={4500} widthRatio={0.3} />
+          <Text style={[styles.dnaCode, { color: dnaInfo.text }]}>
+            {dnaCode} · YOUR BEAUTY DNA
+          </Text>
+          <Text style={[styles.dnaName, { color: dnaInfo.text }]}>{dnaInfo.name}</Text>
+          <Text style={[styles.dnaKr, { color: dnaInfo.text }]}>{dnaInfo.kr}</Text>
+          {tags.length > 0 && (
+            <>
+              <View style={styles.dnaDivider} />
+              <View style={styles.dnaTagsRow}>
+                {tags.slice(0, 4).map((tag) => (
+                  <View key={tag} style={styles.dnaTag}>
+                    <Text style={styles.dnaTagText}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {/* ── 4. Premium ────────────────────────────────────────────────── */}
+        <Text style={styles.sectionTitle}>Premium</Text>
+        <View style={styles.premiumCard}>
+          <Text style={styles.premiumTitle}>meve 프리미엄</Text>
+          <Text style={styles.premiumDesc}>
+            모든 기능 무제한 · 우선 분석 · D-day 플랜
+          </Text>
+          <View style={styles.statusRowsGroup}>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>현재 플랜</Text>
+              <Text style={styles.statusValue}>{isPremium ? 'Premium' : 'Free'}</Text>
+            </View>
+            <View style={[styles.statusRow, styles.statusRowLast]}>
+              <Text style={styles.statusLabel}>AI 스캔</Text>
+              <Text style={styles.statusValue}>
+                {isPremium ? '무제한' : `월 ${monthlyScanCount} / 3회`}
               </Text>
             </View>
-          ) : (
-            <View style={styles.scanList}>
-              {(showAllScans ? scans : scans.slice(0, SCAN_PREVIEW_COUNT)).map((row) => (
-                <TouchableOpacity
-                  key={row.id}
-                  style={styles.scanRow}
-                  onPress={() =>
-                    navigation.navigate('ScanResult', {
-                      result: row.scan_result,
-                      isSaved: true,
-                    })
-                  }
-                  activeOpacity={0.75}
-                >
-                  <View style={styles.scanRowLeft}>
-                    <Text style={styles.scanDate}>{formatDate(row.created_at)}</Text>
-                    <Text style={styles.scanCondition} numberOfLines={1}>
-                      {row.scan_result.skinType ??
-                        row.scan_result.skinCondition ??
-                        row.scan_result.summary ??
-                        '피부 분석 결과'}
-                    </Text>
-                  </View>
-                  <View style={styles.scanRowRight}>
-                    <Text style={[styles.scanScore, { color: scoreColor(row.scan_result.overallScore) }]}>
-                      {row.scan_result.overallScore}점
-                    </Text>
-                    <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
-                  </View>
-                </TouchableOpacity>
-              ))}
-              {scans.length > SCAN_PREVIEW_COUNT && (
-                <TouchableOpacity
-                  style={styles.showMoreBtn}
-                  onPress={() => setShowAllScans((prev) => !prev)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.showMoreText}>
-                    {showAllScans
-                      ? '접기 ▲'
-                      : `더보기 (${scans.length - SCAN_PREVIEW_COUNT}개 더) ▼`}
-                  </Text>
-                </TouchableOpacity>
-              )}
+          </View>
+          {!isPremium && (
+            <View style={{ marginTop: 12 }}>
+              <GradientPill
+                label="프리미엄 시작하기 · ₩9,900/월"
+                size="lg"
+                fullWidth
+                iconRight={null}
+                onPress={goPaywall}
+              />
             </View>
           )}
         </View>
 
-        {/* ── 4. SETTINGS MENU ───────────────────────────────────────────── */}
-        <View style={styles.menuCard}>
-          {MENU_ITEMS.map((item, index) => (
-            <TouchableOpacity
-              key={item.label}
-              style={[styles.menuItem, index < MENU_ITEMS.length - 1 && styles.menuItemBorder]}
-              onPress={() => handleMenuPress(item.label)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={item.icon}
-                size={20}
-                color={item.danger ? Colors.danger : item.iconColor ?? '#999'}
+        {/* ── 5. My beauty ──────────────────────────────────────────────── */}
+        <Text style={styles.sectionTitle}>My beauty</Text>
+        <View style={styles.menuGroup}>
+          <MenuRow
+            left={
+              <IconBox
+                gradient={['rgba(255,212,220,0.5)', 'rgba(228,194,204,0.4)']}
+                icon="heart-outline"
+                iconColor="#993556"
               />
-              <View style={styles.menuLabelCol}>
-                <Text style={[styles.menuLabel, item.danger && { color: Colors.danger }]}>
-                  {item.label}
-                </Text>
-                {item.subtitle && (
-                  <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#ddd" />
-            </TouchableOpacity>
-          ))}
+            }
+            title="위시리스트"
+            desc="저장한 제품"
+            onPress={todoPlaceholder}
+          />
+          <MenuRow
+            left={
+              <IconBox
+                gradient={['rgba(228,212,255,0.5)', 'rgba(212,228,255,0.4)']}
+                icon="time-outline"
+                iconColor="#534AB7"
+              />
+            }
+            title="최근 본 제품"
+            desc="최근 조회한 제품"
+            onPress={todoPlaceholder}
+          />
+          <MenuRow
+            left={
+              <IconBox
+                gradient={['rgba(216,228,242,0.5)', 'rgba(220,212,236,0.4)']}
+                icon="document-text-outline"
+                iconColor="#2D3A6B"
+              />
+            }
+            title="내 스캔 이력"
+            desc="날짜별 스캔 결과"
+            onPress={goScanHist}
+          />
         </View>
+
+        {/* ── 6. Settings ───────────────────────────────────────────────── */}
+        <Text style={styles.sectionTitle}>Settings</Text>
+        <View style={styles.menuGroup}>
+          <MenuRow
+            left={<PlainIconBox icon="person-outline" />}
+            title="프로필 수정"
+            onPress={goEdit}
+          />
+          <MenuRow
+            left={<PlainIconBox icon="notifications-outline" />}
+            title="알림 설정"
+            onPress={goNotifs}
+          />
+          <MenuRow
+            left={<PlainIconBox icon="lock-closed-outline" />}
+            title="개인정보 처리방침"
+            onPress={goPrivacy}
+          />
+          <MenuRow
+            left={<PlainIconBox icon="document-outline" />}
+            title="이용약관"
+            onPress={goTerms}
+          />
+        </View>
+
+        {/* ── 7. Logout ─────────────────────────────────────────────────── */}
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn} hitSlop={8}>
+          <Text style={styles.logoutText}>로그아웃</Text>
+        </TouchableOpacity>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -402,621 +392,260 @@ export function MyPageScreen() {
   );
 }
 
-// ─── Beauty DNA card ────────────────────────────────────────────────────────
-
-const isValid = (v: string | null | undefined) =>
-  !!v && v !== 'unknown' && v.trim() !== '';
-
-// Personal color → palette mapping for the Beauty DNA card swatches.
-const COLOR_PALETTES: Record<string, string[]> = {
-  '봄 웜톤': ['#FFB5A7', '#F8A195', '#E07B6B', '#FFCBA4', '#F4A460', '#DEB887'],
-  '여름 쿨톤': ['#B8D4E8', '#9FC3DC', '#C4B8E0', '#E8B4D0', '#D4A0C0', '#B0C4DE'],
-  '가을 웜톤': ['#C8A882', '#B8956A', '#8B6914', '#CD853F', '#D2691E', '#A0522D'],
-  '겨울 쿨톤': ['#E8E8F0', '#C8C8E0', '#9090C8', '#FF1493', '#DC143C', '#800020'],
-};
-
-function BeautyDnaCard({
-  onFaceAnalysis,
-  onSkinScan,
-}: {
-  onFaceAnalysis: () => void;
-  onSkinScan: () => void;
-}) {
-  const profile = useBeautyProfile();
-  const completion = profile.getCompletionPercentage();
-  const [previousScore, setPreviousScore] = useState<number | null>(null);
-
-  // Load previous scan score for the trend arrow.
-  useEffect(() => {
-    AsyncStorage.getItem('meve_previous_scan_result').then((raw) => {
-      if (!raw) return;
-      try {
-        const parsed = JSON.parse(raw);
-        if (typeof parsed?.overallScore === 'number') {
-          setPreviousScore(parsed.overallScore);
-        }
-      } catch {}
-    });
-  }, []);
-
-  // Identity sentence pieces.
-  const featureParts: string[] = [];
-  if (isValid(profile.personalColor)) featureParts.push(profile.personalColor!);
-  if (isValid(profile.faceShape)) featureParts.push(profile.faceShape!);
-  if (isValid(profile.eyeType)) featureParts.push(profile.eyeType!);
-  const featureLine = featureParts.length > 0 ? featureParts.join(' / ') : null;
-
-  const skinPart = isValid(profile.skinType) ? `${profile.skinType} 피부` : null;
-  const vibePart = isValid(profile.vibe) ? `${profile.vibe} 추구미` : null;
-  const skinVibeJoined = [skinPart, vibePart].filter(Boolean).join('에 ');
-  const skinVibeLine = skinVibeJoined ? `${skinVibeJoined}예요` : null;
-
-  const hasIdentity = !!featureLine || !!skinVibeLine;
-
-  const palette =
-    isValid(profile.personalColor) && COLOR_PALETTES[profile.personalColor!]
-      ? COLOR_PALETTES[profile.personalColor!]
-      : null;
-
-  const scoreDiff =
-    profile.lastSkinScore != null && previousScore != null
-      ? profile.lastSkinScore - previousScore
-      : null;
-
-  // CTA copy + handler depend on what's missing first.
-  const ctaText = !isValid(profile.personalColor)
-    ? '+ AI 얼굴 분석으로 퍼스널컬러 알아보기 →'
-    : profile.lastSkinScore == null
-      ? '+ 피부 스캔하고 스코어 확인하기 →'
-      : '+ 프로필 완성하기 →';
-  const ctaHandler =
-    !isValid(profile.personalColor) || isValid(profile.personalColor)
-      ? onFaceAnalysis
-      : onSkinScan;
-  // Above keeps onFaceAnalysis for personalColor missing case AND default;
-  // route the "피부 스캔" CTA to onSkinScan for correct destination:
-  const skinScanCta =
-    isValid(profile.personalColor) && profile.lastSkinScore == null;
-
-  return (
-    <View style={styles.dnaCard}>
-      {/* Header */}
-      <View style={styles.dnaHeader}>
-        <Text style={styles.dnaTitle}>내 뷰티 DNA ✨</Text>
-        <TouchableOpacity onPress={onFaceAnalysis} activeOpacity={0.75}>
-          <Text style={styles.dnaEditBtn}>편집 →</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Identity sentence */}
-      {hasIdentity ? (
-        <View style={styles.identitySection}>
-          {featureLine && (
-            <Text style={styles.identityFeature}>{featureLine}</Text>
-          )}
-          {skinVibeLine && (
-            <Text style={styles.identitySkinVibe}>{skinVibeLine}</Text>
-          )}
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={styles.identityEmpty}
-          onPress={onFaceAnalysis}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.identityEmptyText}>
-            AI 얼굴 분석으로 내 뷰티 정체성을 알아봐요 →
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Personal color palette swatches */}
-      {palette && (
-        <View style={styles.paletteSection}>
-          <Text style={styles.paletteLabel}>
-            {profile.personalColor} 컬러 팔레트
-          </Text>
-          <View style={styles.swatchRow}>
-            {palette.map((color, i) => (
-              <View
-                key={`${color}-${i}`}
-                style={[styles.swatch, { backgroundColor: color }]}
-              />
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Skin concerns */}
-      {profile.skinConcerns && profile.skinConcerns.length > 0 && (
-        <View style={styles.concernSection}>
-          <Text style={styles.concernLabel}>피부 고민</Text>
-          <View style={styles.concernPills}>
-            {profile.skinConcerns.map((concern, i) => (
-              <View key={`${concern}-${i}`} style={styles.concernPill}>
-                <Text style={styles.concernPillText}>{concern}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Skin score with trend */}
-      {profile.lastSkinScore != null && (
-        <View style={styles.scoreRow}>
-          <Text style={styles.scoreLabel}>스킨 스코어</Text>
-          <View style={styles.scoreRight}>
-            <Text style={styles.scoreValue}>{profile.lastSkinScore}점</Text>
-            {scoreDiff !== null && scoreDiff !== 0 && (
-              <Text
-                style={[
-                  styles.scoreDiff,
-                  { color: scoreDiff > 0 ? '#7CB798' : '#FF6B6B' },
-                ]}
-              >
-                {scoreDiff > 0 ? ' ↑' : ' ↓'}
-                {Math.abs(scoreDiff)}
-              </Text>
-            )}
-          </View>
-        </View>
-      )}
-
-      {/* Completion bar */}
-      <View style={styles.completionSection}>
-        <View style={styles.completionRow}>
-          <Text style={styles.completionLabel}>
-            프로필 완성도 {completion}%
-          </Text>
-        </View>
-        <View style={styles.completionBar}>
-          <View
-            style={[styles.completionFill, { width: `${completion}%` }]}
-          />
-        </View>
-      </View>
-
-      {/* CTA if incomplete */}
-      {completion < 100 && (
-        <TouchableOpacity
-          style={styles.dnaCta}
-          onPress={skinScanCta ? onSkinScan : ctaHandler}
-          activeOpacity={0.75}
-        >
-          <Text style={styles.dnaCtaText}>{ctaText}</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-}
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDF6F9' },
-  scroll: { flex: 1 },
-  content: { paddingBottom: 20 },
-
-  screenHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 0,
-  },
-  headerLogo: {
-    width: 170,
-    height: 68,
-    resizeMode: 'contain',
-    alignSelf: 'flex-start',
-    marginLeft: -40,
-    marginBottom: -8,
+  safe: {
+    flex: 1,
+    backgroundColor: '#FBF5F6',
   },
 
-  // Profile header
-  profileHeader: {
+  // 1. Top row
+  topRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 24,
-    paddingBottom: 24,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
   },
-  avatar: {
+  title: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 20,
+    lineHeight: 24,
+    color: '#2D3A6B',
+    fontWeight: '300',
+  },
+
+  // 2. Profile
+  profileSection: {
+    alignItems: 'center',
+    paddingTop: 20,
+  },
+  avatarWrap: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.accent,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
-  displayName: {
+  avatarChar: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 30,
+    lineHeight: 34,
+    color: '#2D3A6B',
+    fontWeight: '300',
+  },
+  name: {
+    fontFamily: 'Pretendard-SemiBold',
     fontSize: 20,
-    fontWeight: '700',
-    color: '#2D2D2D',
+    lineHeight: 24,
+    color: '#1A1A1F',
+    fontWeight: '600',
+    marginTop: 12,
   },
   email: {
-    fontSize: 13,
-    color: '#999',
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#8E8E93',
     marginTop: 2,
   },
-  planBadge: {
+  badge: {
     marginTop: 8,
-    backgroundColor: '#eee',
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 20,
+    borderRadius: 100,
+    backgroundColor: 'rgba(45,58,107,0.08)',
+    overflow: 'hidden',
   },
-  planBadgePremium: {
-    backgroundColor: Colors.accent,
+  badgePremiumWrap: {
+    backgroundColor: 'transparent',
   },
-  planBadgeText: {
-    fontSize: 12,
-    color: '#999',
+  badgeText: {
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#2D3A6B',
     fontWeight: '600',
   },
-  planBadgeTextPremium: {
-    color: '#fff',
-  },
 
-  // Beauty DNA card
+  // 3. DNA card
   dnaCard: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 20,
-    padding: 20,
     marginHorizontal: 20,
-    marginBottom: 16,
-    shadowColor: '#D0B0D8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
+    marginTop: 16,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    overflow: 'hidden',
   },
-  dnaHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  dnaCode: {
+    fontFamily: 'Menlo',
+    fontSize: 8,
+    lineHeight: 11,
+    letterSpacing: 3,
+    opacity: 0.7,
   },
-  dnaTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1A2E',
+  dnaName: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: '300',
+    marginTop: 4,
   },
-  dnaEditBtn: {
-    fontSize: 13,
-    color: '#FF6B9D',
+  dnaKr: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 10,
+    lineHeight: 13,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    opacity: 0.85,
+    marginTop: 2,
     fontWeight: '500',
   },
-
-  identitySection: {
-    marginBottom: 14,
+  dnaDivider: {
+    height: 0.5,
+    backgroundColor: 'rgba(45,58,107,0.18)',
+    marginTop: 10,
+    marginBottom: 8,
   },
-  identityFeature: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A2E',
-    marginBottom: 2,
-  },
-  identitySkinVibe: {
-    fontSize: 14,
-    color: '#5A5A7A',
-    fontWeight: '400',
-  },
-  identityEmpty: {
-    backgroundColor: '#FFF0F5',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: '#FFC4D6',
-    borderStyle: 'dashed',
-  },
-  identityEmptyText: {
-    fontSize: 13,
-    color: '#FF6B9D',
-    fontWeight: '500',
-  },
-
-  paletteSection: {
-    marginBottom: 14,
-  },
-  paletteLabel: {
-    fontSize: 11,
-    color: '#8A8A9A',
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  swatchRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  swatch: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-  },
-
-  concernSection: {
-    marginBottom: 12,
-  },
-  concernLabel: {
-    fontSize: 11,
-    color: '#8A8A9A',
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  concernPills: {
+  dnaTagsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
   },
-  concernPill: {
-    backgroundColor: '#E8F4FD',
-    borderRadius: 50,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  dnaTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.4)',
   },
-  concernPillText: {
-    fontSize: 12,
-    color: '#5BA3D9',
+  dnaTagText: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 9,
+    lineHeight: 12,
+    color: '#2D3A6B',
     fontWeight: '500',
   },
 
-  scoreRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F5F5F5',
-  },
-  scoreLabel: {
+  // Section title
+  sectionTitle: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
     fontSize: 13,
-    color: '#8A8A9A',
-    fontWeight: '500',
-  },
-  scoreRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  scoreValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#5BA3D9',
-  },
-  scoreDiff: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  completionSection: {
+    lineHeight: 16,
+    color: '#2D3A6B',
+    paddingHorizontal: 20,
+    marginTop: 16,
     marginBottom: 10,
   },
-  completionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  completionLabel: {
-    fontSize: 12,
-    color: '#8A8A9A',
-  },
-  completionBar: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#F0F0F0',
-  },
-  completionFill: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FF6B9D',
-  },
 
-  dnaCta: {
-    marginTop: 8,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F5F5F5',
-  },
-  dnaCtaText: {
-    fontSize: 12,
-    color: '#FF6B9D',
-    fontWeight: '500',
-  },
-
-  // Plan card
-  planCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    marginHorizontal: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  planTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#2D2D2D',
-    marginBottom: 4,
-  },
-  planSubtitle: {
-    fontSize: 13,
-    color: '#999',
-    marginBottom: 16,
-  },
-  featureTable: {},
-  featureHeaderRow: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0E6EC',
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  featureRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F9F0F5',
-  },
-  featureCell: {
-    textAlign: 'center',
-  },
-  featureCellLabel: {
-    flex: 1,
-    textAlign: 'left',
-    fontSize: 12,
-    color: '#999',
-  },
-  featureCellHeader: {
-    width: 60,
-    fontSize: 12,
-    color: '#999',
-  },
-  featureCellValue: {
-    width: 60,
-    fontSize: 12,
-    color: '#999',
-    textAlign: 'center',
-  },
-
-  // CTA
-  ctaGradient: {
-    borderRadius: 14,
-    marginTop: 20,
-  },
-  ctaBtn: {
+  // 4. Premium card
+  premiumCard: {
+    marginHorizontal: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
     padding: 16,
-    alignItems: 'center',
   },
-  ctaBtnTitle: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 16,
+  premiumTitle: {
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: 15,
+    lineHeight: 20,
+    color: '#1A1A1F',
+    fontWeight: '600',
   },
-  ctaBtnPrice: {
-    color: '#fff',
-    opacity: 0.85,
-    fontSize: 13,
+  premiumDesc: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 11,
+    lineHeight: 16,
+    color: '#8E8E93',
     marginTop: 2,
   },
-
-  // Section
-  section: {
-    marginHorizontal: 16,
-    gap: Spacing.sm,
-    marginBottom: 16,
+  statusRowsGroup: {
+    marginTop: 12,
   },
-  sectionTitle: { ...Typography.h3 },
-  referralCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
-  referralDesc: { ...Typography.bodySecondary, lineHeight: 20 },
-  clinicRow: {
+  statusRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: Spacing.sm,
-    paddingTop: Spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    paddingVertical: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F2F2F4',
   },
-  clinicName: { ...Typography.body, fontWeight: '700', color: Colors.textPrimary },
-  clinicSub: { ...Typography.caption, color: Colors.textSecondary, marginTop: 2 },
-  clinicBtn: {
-    backgroundColor: Colors.accent,
-    borderRadius: Radius.md,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+  statusRowLast: {
+    borderBottomWidth: 0,
   },
-  clinicBtnOutline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: Colors.accent,
+  statusLabel: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#8E8E93',
   },
-  clinicBtnText: { ...Typography.caption, color: '#fff', fontWeight: '800' },
-  clinicBtnTextOutline: { color: Colors.accent },
-  emptyCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingVertical: Spacing.xl,
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  emptyText: { ...Typography.bodySecondary, textAlign: 'center', lineHeight: 22 },
-
-  // Scan list
-  scanList: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  scanRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  scanRowLeft: { flex: 1, gap: 2 },
-  scanDate: { ...Typography.caption, color: Colors.textSecondary },
-  scanCondition: { ...Typography.body, color: Colors.textPrimary },
-  scanRowRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  scanScore: { fontSize: 15, fontWeight: '700' },
-  showMoreBtn: {
-    alignItems: 'center',
-    paddingVertical: 10,
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#F5F5F5',
-  },
-  showMoreText: {
-    fontSize: 13,
-    color: '#5BA3D9',
+  statusValue: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#1A1A1F',
     fontWeight: '500',
   },
 
-  // Menu
-  menuCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    overflow: 'hidden',
+  // 5 + 6. Menu rows
+  menuGroup: {
+    paddingHorizontal: 20,
   },
-  menuItem: {
+  menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
+    gap: 12,
+    marginBottom: 8,
   },
-  menuItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F9F0F5',
-  },
-  menuLabelCol: {
-    marginLeft: 12,
+  menuRowText: {
     flex: 1,
-    gap: 2,
   },
-  menuLabel: {
-    fontSize: 15,
-    color: '#2D2D2D',
+  menuRowTitle: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 14,
+    lineHeight: 18,
+    color: '#1A1A1F',
+    fontWeight: '500',
   },
-  menuSubtitle: {
-    fontSize: 12,
-    color: '#8A8A9A',
+  menuRowDesc: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  plainIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(45,58,107,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // 7. Logout
+  logoutBtn: {
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 40,
+  },
+  logoutText: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 13,
+    lineHeight: 16,
+    color: '#8E8E93',
   },
 });

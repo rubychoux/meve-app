@@ -167,7 +167,7 @@ function Divider() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -175,10 +175,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
   content: { paddingHorizontal: 20, paddingVertical: 24, paddingBottom: 60 },
 
-  docTitle: { fontSize: 22, fontWeight: '800', color: '#1A1A2E', marginBottom: 12 },
+  docTitle: { fontSize: 22, fontWeight: '800', color: '#1A1A1F', marginBottom: 12 },
   intro: { fontSize: 14, color: '#4A4A5A', lineHeight: 24, marginBottom: 8 },
   meta: { fontSize: 12, color: '#8A8A9A', marginBottom: 24 },
 
@@ -186,14 +186,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginTop: 24,
     marginBottom: 8,
   },
   subTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginTop: 10,
     marginBottom: 4,
   },

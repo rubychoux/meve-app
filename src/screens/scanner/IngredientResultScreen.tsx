@@ -12,14 +12,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
-import { MainStackParamList } from '../../types';
+import { MainStackParamList, MainTabParamList } from '../../types';
 import { openOliveYoungSearch } from '../../services/affiliate';
 
-type Nav = NativeStackNavigationProp<MainStackParamList, 'IngredientResult'>;
+// v3 — composite so we can navigate to the Skincare bottom-tab from this stack screen.
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<MainStackParamList, 'IngredientResult'>,
+  BottomTabNavigationProp<MainTabParamList>
+>;
 type Route = RouteProp<MainStackParamList, 'IngredientResult'>;
 
 interface IngredientItem {

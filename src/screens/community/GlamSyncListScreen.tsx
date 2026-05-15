@@ -213,7 +213,7 @@ export function GlamSyncListScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
   headerRight: { fontSize: 13, fontWeight: '600', color: PINK },
 
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 12 },
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(220,220,230,0.5)',
   },
-  cardName: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  cardName: { fontSize: 15, fontWeight: '700', color: '#1A1A1F' },
   cardMeta: { fontSize: 12, color: '#8A8A9A' },
   cardBadges: { flexDirection: 'row', gap: 6, marginTop: 4 },
   doneBadge: {
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 10,
   },
-  openBadgeText: { fontSize: 11, color: '#5BA3D9', fontWeight: '700' },
+  openBadgeText: { fontSize: 11, color: '#2D3A6B', fontWeight: '700' },
 
   fab: {
     position: 'absolute',
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 10,
   },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
   modalSub: { fontSize: 12, color: '#8A8A9A' },
   codeInput: {
     borderWidth: 1,
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     textAlign: 'center',
     letterSpacing: 4,
   },

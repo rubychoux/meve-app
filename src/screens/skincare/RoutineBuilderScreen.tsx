@@ -72,7 +72,7 @@ const EVAL_CONFIG: Record<
   keep: { icon: '✅', label: '유지 추천', color: '#7CB798' },
   caution: { icon: '⚠️', label: '주의 필요', color: '#F0A500' },
   replace: { icon: '❌', label: '교체 추천', color: '#FF6B6B' },
-  add: { icon: '➕', label: '추가 추천', color: '#5BA3D9' },
+  add: { icon: '➕', label: '추가 추천', color: '#2D3A6B' },
 };
 
 function oliveYoungSearchUrl(query: string): string {
@@ -828,7 +828,7 @@ JSON만 반환: { "brand": "브랜드명", "name": "제품명", "price_krw": 가
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -837,21 +837,21 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
   },
-  backBtn: { fontSize: 22, color: '#1A1A2E', width: 32 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A2E' },
+  backBtn: { fontSize: 22, color: '#1A1A1F', width: 32 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1F' },
   progressBar: {
     height: 3,
-    backgroundColor: '#F0F0F5',
+    backgroundColor: 'rgba(26,26,31,0.06)',
     marginHorizontal: 20,
     borderRadius: 2,
     marginBottom: 8,
   },
-  progressFill: { height: 3, backgroundColor: '#5BA3D9', borderRadius: 2 },
+  progressFill: { height: 3, backgroundColor: '#2D3A6B', borderRadius: 2 },
   stepContent: { padding: 20, paddingBottom: 60 },
   stepTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 8,
   },
   stepSub: {
@@ -876,7 +876,7 @@ const styles = StyleSheet.create({
   productEntryCategory: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 10,
   },
   productEntryToggle: { flexDirection: 'row', gap: 8, marginBottom: 10 },
@@ -888,17 +888,17 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#E5E5EA',
   },
-  toggleBtnActive: { borderColor: '#5BA3D9', backgroundColor: '#E8F4FD' },
+  toggleBtnActive: { borderColor: '#2D3A6B', backgroundColor: '#E8F4FD' },
   toggleBtnActiveGray: { borderColor: '#C0C0CC', backgroundColor: '#F5F5FA' },
   toggleBtnText: { fontSize: 14, color: '#8A8A9A', fontWeight: '500' },
-  toggleBtnTextActive: { color: '#1A1A2E', fontWeight: '700' },
+  toggleBtnTextActive: { color: '#1A1A1F', fontWeight: '700' },
   productNameInput: {
     borderWidth: 1.5,
     borderColor: '#E5E5EA',
     borderRadius: 10,
     padding: 12,
     fontSize: 14,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
   },
 
   // Step 2
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
   evalProductName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 4,
   },
   evalLabel: { fontSize: 12, fontWeight: '700', marginBottom: 4 },
@@ -933,7 +933,7 @@ const styles = StyleSheet.create({
   suggestionCategory: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 6,
   },
   suggestionReplaceNote: {
@@ -950,7 +950,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
   },
   suggestionCardSelected: {
-    borderColor: '#5BA3D9',
+    borderColor: '#2D3A6B',
     backgroundColor: '#E8F4FD',
   },
   suggestionCardTop: { flexDirection: 'row', gap: 10, marginBottom: 10 },
@@ -960,10 +960,10 @@ const styles = StyleSheet.create({
   suggestionName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 4,
   },
-  suggestionPrice: { fontSize: 13, color: '#5BA3D9', fontWeight: '600' },
+  suggestionPrice: { fontSize: 13, color: '#2D3A6B', fontWeight: '600' },
   suggestionRating: { fontSize: 11, color: '#F0A500' },
   suggestionCardBtns: { flexDirection: 'row', gap: 8 },
   oliveyoungBtn: {
@@ -980,11 +980,11 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#5BA3D9',
+    borderColor: '#2D3A6B',
     alignItems: 'center',
   },
-  selectBtnActive: { backgroundColor: '#5BA3D9' },
-  selectBtnText: { fontSize: 13, color: '#5BA3D9', fontWeight: '600' },
+  selectBtnActive: { backgroundColor: '#2D3A6B' },
+  selectBtnText: { fontSize: 13, color: '#2D3A6B', fontWeight: '600' },
   selectBtnTextActive: { color: '#FFFFFF' },
   allGoodState: { alignItems: 'center', paddingVertical: 40 },
   allGoodEmoji: { fontSize: 48, marginBottom: 12 },
@@ -1000,7 +1000,7 @@ const styles = StyleSheet.create({
   routineSectionTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 10,
   },
   routineStepCard: {
@@ -1020,7 +1020,7 @@ const styles = StyleSheet.create({
   routineStepNum: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#5BA3D9',
+    color: '#2D3A6B',
     width: 24,
     textAlign: 'center',
   },
@@ -1029,7 +1029,7 @@ const styles = StyleSheet.create({
   routineStepProduct: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 2,
   },
   routineStepNote: { fontSize: 11, color: '#8A8A9A' },
@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
   },
   newBadge: {
     fontSize: 10,
-    color: '#5BA3D9',
+    color: '#2D3A6B',
     fontWeight: '700',
     backgroundColor: '#E8F4FD',
     borderRadius: 6,
@@ -1060,7 +1060,7 @@ const styles = StyleSheet.create({
   whyTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 10,
   },
   whyItem: {
@@ -1081,7 +1081,7 @@ const styles = StyleSheet.create({
   completeTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 10,
   },
   completeSub: {
@@ -1095,7 +1095,7 @@ const styles = StyleSheet.create({
   // Common
   bottomBarInner: { marginTop: 24 },
   ctaBtn: {
-    backgroundColor: '#5BA3D9',
+    backgroundColor: '#2D3A6B',
     borderRadius: 50,
     padding: 16,
     alignItems: 'center',

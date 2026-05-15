@@ -25,7 +25,7 @@ type Nav = NativeStackNavigationProp<MainStackParamList, 'PostDetail'>;
 type Rt = RouteProp<MainStackParamList, 'PostDetail'>;
 
 const PINK = '#FF6B9D';
-const BLUE = '#5BA3D9';
+const BLUE = '#2D3A6B';
 
 const EVENT_EMOJI: Record<string, string> = {
   wedding: '💍',
@@ -730,7 +730,7 @@ export function PostDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { fontSize: 13, color: '#8A8A9A' },
 
@@ -741,7 +741,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
 
   content: { paddingBottom: 20, gap: 14 },
 
@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  postName: { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
+  postName: { fontSize: 13, fontWeight: '700', color: '#1A1A1F' },
   postTime: { fontSize: 11, color: '#8A8A9A', marginTop: 1 },
 
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
   },
   baLabelText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
 
-  postContent: { fontSize: 14, color: '#1A1A2E', lineHeight: 21 },
+  postContent: { fontSize: 14, color: '#1A1A1F', lineHeight: 21 },
 
   productRow: { flexDirection: 'row', gap: 6, paddingVertical: 4, paddingRight: 16 },
   productChip: {
@@ -858,7 +858,7 @@ const styles = StyleSheet.create({
   commentsLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     paddingHorizontal: 20,
     marginTop: 8,
   },
@@ -875,9 +875,9 @@ const styles = StyleSheet.create({
   },
   commentAI: { backgroundColor: '#F0F7FD' },
   commentMeta: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 3 },
-  commentName: { fontSize: 12, fontWeight: '700', color: '#1A1A2E' },
+  commentName: { fontSize: 12, fontWeight: '700', color: '#1A1A1F' },
   commentTime: { fontSize: 10, color: '#8A8A9A' },
-  commentText: { fontSize: 13, color: '#1A1A2E', lineHeight: 19 },
+  commentText: { fontSize: 13, color: '#1A1A1F', lineHeight: 19 },
 
   // Reply button + replies toggle
   replyBtnWrap: {
@@ -927,7 +927,7 @@ const styles = StyleSheet.create({
   replyName: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
   },
   mention: {
     color: BLUE,
@@ -973,7 +973,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     minHeight: 40,
     maxHeight: 100,
   },

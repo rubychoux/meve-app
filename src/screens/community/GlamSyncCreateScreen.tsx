@@ -254,7 +254,7 @@ export function GlamSyncCreateScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -262,14 +262,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
   headerStep: { fontSize: 13, color: '#8A8A9A', fontWeight: '600' },
 
   content: { padding: 20, paddingBottom: 60 },
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 8,
     marginTop: 12,
   },
@@ -281,11 +281,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 14,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     justifyContent: 'center',
     minHeight: 48,
   },
-  inputText: { fontSize: 14, color: '#1A1A2E' },
+  inputText: { fontSize: 14, color: '#1A1A1F' },
   inputPlaceholder: { color: '#B8AFB5' },
   doneBtn: { alignSelf: 'flex-end', paddingHorizontal: 14, paddingVertical: 8 },
   doneBtnText: { color: PINK, fontWeight: '600', fontSize: 14 },
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   levelNum: { fontSize: 34, fontWeight: '800' },
-  levelLabel: { fontSize: 14, color: '#1A1A2E', fontWeight: '600' },
+  levelLabel: { fontSize: 14, color: '#1A1A1F', fontWeight: '600' },
 
   levelRow: {
     flexDirection: 'row',

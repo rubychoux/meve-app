@@ -1,1516 +1,935 @@
-import React, { useCallback, useEffect, useState } from 'react';
+/**
+ * SkincareScreen — v3 SKIN tab full redesign.
+ *
+ * 백업:
+ *   - SkincareScreen.backup.tsx          (1520-line original — routine + ingredient deep screen)
+ *   - SkincareScreen.backup-menuhub.tsx  (v3 menu hub from ScanScreen split)
+ *
+ * 새 구조 (위→아래):
+ *   1. TopBar (공통)
+ *   2. 헤더 — Skin eyebrow + 스킨케어 + DNA/skin-type 한 줄
+ *   3. 피부 프로필 카드 (GCS gradient + ShimmerSweep + 토글 펼침)
+ *   4. 오늘의 루틴 (5 dots + GradientPill)
+ *   5. 추천 성분 (pill chips)
+ *   6. 피부 기록 (score + 7일 bar chart) + 3 sub-rows
+ *   7. 케어 플랜 (D-day, AI 시술 추천)
+ *   8. 루틴 관리 (내 루틴 / 다시 만들기)
+ *   9. For you · 스킨케어 (카테고리 필터 + 2×2 제품 그리드)
+ *
+ * 보존된 navigate 경로:
+ *   Skincare(self) / SkinJournal / TroubleCheckin / TroubleAnalysis /
+ *   ProductTracking / DdayPlan / EventSetting / TreatmentRecommend / RoutineBuilder
+ *
+ * 제거됨: AI 피부 스캔 / 성분 스캔 / AI 피부 코치 (TopBar ✨ / Scan 탭으로 이동)
+ */
+
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
   ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  Linking,
-  LayoutAnimation,
-  Platform,
-  UIManager,
+  View,
+  useWindowDimensions,
 } from 'react-native';
-
-if (
-  Platform.OS === 'android' &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-const logo = require('../../../assets/images/meve-logo.png');
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import {
+  useNavigation,
+  CompositeNavigationProp,
+} from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Colors, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
-import { MainStackParamList, ScanAnalysisResult } from '../../types';
-import { loadRoutineCheckin, RoutineCheckin } from '../../utils/routineCheckin';
-import { cleanJson } from '../../utils/openai';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
+import { MainStackParamList, MainTabParamList } from '../../types';
+import { GradientPill, ShimmerSweep } from '../../components/signature';
+import { TopBar } from '../../components/common/TopBar';
 
-// MEVE-249 — SkincareScreen now lives in MainStackNavigator under name 'Skincare'.
-type Nav = NativeStackNavigationProp<MainStackParamList, 'Skincare'>;
+type Nav = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, 'Skincare'>,
+  NativeStackNavigationProp<MainStackParamList>
+>;
 
-// ─── Event config (inline) ───────────────────────────────────────────────────
+interface ScanRecord {
+  date: string;
+  score: number;
+}
 
-const EVENT_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  wedding: 'diamond-outline',
-  date: 'heart-outline',
-  graduation: 'school-outline',
-  travel: 'airplane-outline',
-};
+// ─── Static content ───────────────────────────────────────────────────────────
 
-const EVENT_INFO: Record<string, { label: string; gradient: [string, string]; tip: string }> = {
-  wedding: { label: '웨딩', gradient: ['#F5E6E8', '#E8D5D8'], tip: '트러블 제로 + 순한 성분 중심으로 관리해요' },
-  date: { label: '데이트', gradient: ['#FCE4EC', '#F8BBD9'], tip: '글로우 집중 + 모공 정돈 케어' },
-  graduation: { label: '졸업', gradient: ['#E3F2FD', '#BBDEFB'], tip: '화사한 피부톤 + 미백 집중' },
-  travel: { label: '여행', gradient: ['#E0F7FA', '#B2EBF2'], tip: '피부 장벽 강화 + 선케어 집중' },
-};
+const RECOMMENDED_INGREDIENTS = ['히알루론산', '세라마이드', '판테놀', '나이아신아마이드'];
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const CATEGORIES = ['전체', '클렌징', '토너', '세럼', '크림', '선크림', '마스크'];
 
-interface IngredientRec {
+interface RecommendedProduct {
+  brand: string;
   name: string;
-  benefit: string;
+  match: string;
   reason: string;
+  price: string;
+  swatch: readonly [string, string];
 }
-interface IngredientAvoid {
-  name: string;
-  reason: string;
-}
-interface IngredientResult {
-  recommended: IngredientRec[];
-  avoid: IngredientAvoid[];
-  eventTip: string;
-}
+const RECOMMENDED_PRODUCTS: RecommendedProduct[] = [
+  { brand: '라네즈',     name: '워터뱅크 크림',        match: '94%', reason: '건성·고보습', price: '₩38,000', swatch: ['#D4E4FF', '#C4D4F0'] as const },
+  { brand: '이니스프리', name: '그린티 세럼',          match: '92%', reason: '수분·진정',   price: '₩28,000', swatch: ['#D8E8C5', '#C8D8B5'] as const },
+  { brand: '코스알엑스', name: '스네일 에센스',        match: '91%', reason: '재생·보습',   price: '₩24,000', swatch: ['#F0E0CC', '#E0D0BC'] as const },
+  { brand: '닥터지',     name: '레드 블레미쉬 클리어', match: '89%', reason: '진정·트러블', price: '₩22,000', swatch: ['#FFD4DC', '#EFC4D4'] as const },
+];
 
-interface GeneratedRoutineStep {
-  step: number;
-  category: string;
-  product: string;
-  instruction: string;
-  tip: string;
-  oliveyoungQuery: string;
-}
+// ─── Helper: gradient icon box (replaces emoji) ──────────────────────────────
 
-interface GeneratedRoutine {
-  eventFocus: string;
-  am: GeneratedRoutineStep[];
-  pm: GeneratedRoutineStep[];
+interface IconBoxProps {
+  gradient: readonly [string, string];
+  icon: keyof typeof Ionicons.glyphMap;
+  size?: number;
 }
+const IconBox: React.FC<IconBoxProps> = ({ gradient, icon, size = 34 }) => (
+  <View
+    style={{
+      width: size,
+      height: size,
+      borderRadius: size === 34 ? 10 : 12,
+      overflow: 'hidden',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+  >
+    <LinearGradient
+      colors={gradient}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={StyleSheet.absoluteFill}
+    />
+    <Ionicons name={icon} size={size * 0.5} color="#FFFFFF" />
+  </View>
+);
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Helper: MenuRow (icon + title + sub + chevron) ──────────────────────────
+
+interface MenuRowProps {
+  gradient: readonly [string, string];
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  sub: string;
+  onPress: () => void;
+  iconSize?: number;
+}
+const MenuRow: React.FC<MenuRowProps> = ({ gradient, icon, title, sub, onPress, iconSize = 34 }) => (
+  <TouchableOpacity style={styles.menuRow} onPress={onPress} activeOpacity={0.85}>
+    <IconBox gradient={gradient} icon={icon} size={iconSize} />
+    <View style={styles.menuRowText}>
+      <Text style={styles.menuRowTitle}>{title}</Text>
+      <Text style={styles.menuRowSub}>{sub}</Text>
+    </View>
+    <Ionicons name="chevron-forward" size={18} color="#C0C0CC" />
+  </TouchableOpacity>
+);
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export function SkincareScreen() {
   const navigation = useNavigation<Nav>();
+  const profile = useBeautyProfile();
+  const { width } = useWindowDimensions();
 
-  // MEVE — event source of truth: beautyProfileStore (reactive across screens)
-  const eventType = useBeautyProfile((s) => s.eventType);
-  const eventDate = useBeautyProfile((s) => s.eventDate);
-  const [lastScan, setLastScan] = useState<ScanAnalysisResult | null>(null);
-  const [scanLoaded, setScanLoaded] = useState(false);
-  // MEVE-242 — for the journal entry card
-  const lastSkinScore = useBeautyProfile((s) => s.lastSkinScore);
-  const [previousSkinScore, setPreviousSkinScore] = useState<number | null>(null);
+  const [profileExpanded, setProfileExpanded] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('전체');
+  const [recentScans, setRecentScans] = useState<ScanRecord[]>([]);
+
+  // Load last-7-day skin scans for the record card bar chart (preserved from
+  // backup pattern).
   useEffect(() => {
-    AsyncStorage.getItem('meve_previous_scan_result').then((raw) => {
-      if (!raw) return;
+    let cancelled = false;
+    (async () => {
       try {
-        const parsed = JSON.parse(raw);
-        if (typeof parsed?.overallScore === 'number') {
-          setPreviousSkinScore(parsed.overallScore);
-        }
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const { data } = await supabase
+          .from('skin_scans')
+          .select('scan_result, created_at')
+          .eq('user_id', user.id)
+          .gte('created_at', sevenDaysAgo.toISOString())
+          .order('created_at', { ascending: true })
+          .limit(7);
+        if (cancelled || !data || data.length === 0) return;
+        const scans: ScanRecord[] = data.map((s: any) => ({
+          date: s.created_at.slice(0, 10),
+          score: s.scan_result?.overallScore ?? 0,
+        }));
+        setRecentScans(scans);
       } catch {}
-    });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
-  const journalScoreDiff =
-    lastSkinScore != null && previousSkinScore != null
-      ? lastSkinScore - previousSkinScore
+
+  // ── Derived ─────────────────────────────────────────────────────────────
+  const daysLeft = profile.eventDate
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(profile.eventDate).getTime() - Date.now()) / 86_400_000,
+        ),
+      )
+    : null;
+
+  const skinScore = profile.lastSkinScore ?? recentScans[recentScans.length - 1]?.score ?? null;
+  const scoreDiff =
+    recentScans.length >= 2
+      ? recentScans[recentScans.length - 1].score - recentScans[0].score
       : null;
 
-  // Ingredient analysis
-  const [ingredientResult, setIngredientResult] = useState<IngredientResult | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [recommendedExpanded, setRecommendedExpanded] = useState(false);
-  const [avoidExpanded, setAvoidExpanded] = useState(false);
-  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
-
-  const toggleRecommended = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setRecommendedExpanded((prev) => !prev);
+  // ── Handlers (preserve original navigate paths) ─────────────────────────
+  const goIngredients   = () => navigation.navigate('Skincare');
+  const goJournal       = () => navigation.navigate('SkinJournal');
+  const goTrouble       = () => navigation.navigate('TroubleCheckin');
+  const goAnalysis      = () => navigation.navigate('TroubleAnalysis');
+  const goProductTrack  = () => navigation.navigate('ProductTracking', { mode: 'history' });
+  const goDday          = () =>
+    profile.eventType
+      ? navigation.navigate('DdayPlan')
+      : navigation.navigate('EventSetting');
+  const goTreatment     = () => navigation.navigate('TreatmentRecommend', { mode: 'skin' });
+  const goRoutineManage = async () => {
+    const existing = await AsyncStorage.getItem('meve_routine');
+    if (existing) navigation.navigate('Skincare');
+    else navigation.navigate('RoutineBuilder');
   };
-  const toggleAvoid = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setAvoidExpanded((prev) => !prev);
-  };
-  const toggleStep = (stepNum: number) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedSteps((prev) => {
-      const next = new Set(prev);
-      if (next.has(stepNum)) next.delete(stepNum);
-      else next.add(stepNum);
-      return next;
-    });
-  };
+  const goRoutineRebuild = () => navigation.navigate('RoutineBuilder');
 
-  // Routine (check-in + AI-generated routine)
-  const [routineCheckin, setRoutineCheckin] = useState<RoutineCheckin>({ am: false, pm: false });
-  const [routineTab, setRoutineTab] = useState<'am' | 'pm'>('am');
-  const [generatedRoutine, setGeneratedRoutine] = useState<GeneratedRoutine | null>(null);
-  const [generatingRoutine, setGeneratingRoutine] = useState(false);
-
-  const daysLeft = eventDate
-    ? Math.ceil((new Date(eventDate).getTime() - Date.now()) / 86_400_000)
-    : null;
-  const eventInfo = eventType ? EVENT_INFO[eventType] : null;
-
-  // ── Load data on mount ──────────────────────────────────────────────────────
-
-  useEffect(() => {
-    loadLastScan();
-    loadCachedIngredients();
-    loadRoutine();
-    loadGeneratedRoutine();
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadRoutine();
-      loadGeneratedRoutine();
-    }, [])
-  );
-
-  const loadLastScan = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase
-        .from('skin_scans')
-        .select('scan_result, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      if (data && data.length > 0) {
-        setLastScan(data[0].scan_result as ScanAnalysisResult);
-      }
-    } finally {
-      setScanLoaded(true);
-    }
-  };
-
-  const loadCachedIngredients = async () => {
-    try {
-      const raw = await AsyncStorage.getItem('meve_ingredients');
-      if (raw) setIngredientResult(JSON.parse(raw));
-    } catch {}
-  };
-
-  const loadRoutine = async () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const checkin = await loadRoutineCheckin(today);
-    setRoutineCheckin(checkin);
-  };
-
-  const loadGeneratedRoutine = async () => {
-    try {
-      const raw = await AsyncStorage.getItem('meve_routine');
-      if (raw) setGeneratedRoutine(JSON.parse(raw));
-      else setGeneratedRoutine(null);
-    } catch {}
-  };
-
-  const generateRoutine = async () => {
-    if (generatingRoutine) return;
-    setGeneratingRoutine(true);
-    try {
-      const [
-        [, scanRaw],
-        [, storedEventType],
-        [, ddayDate],
-      ] = await AsyncStorage.multiGet([
-        'meve_last_scan_result',
-        'meve_event_type',
-        'meve_event_date',
-      ]);
-
-      const scanResult = scanRaw ? JSON.parse(scanRaw) : null;
-      const daysLeft = ddayDate
-        ? Math.max(
-            0,
-            Math.ceil((new Date(ddayDate).getTime() - Date.now()) / 86_400_000)
-          )
-        : null;
-
-      const prompt = `You are a Korean skincare expert. Create a personalized AM/PM skincare routine.
-
-User profile:
-- Skin type: ${scanResult?.skinType ?? '정보 없음'}
-- Concerns: ${scanResult?.concerns?.join(', ') ?? '정보 없음'}
-- Event: ${storedEventType ?? '없음'}
-- Days until event: ${daysLeft ?? '미설정'}
-
-Return ONLY valid JSON, no markdown:
-{
-  "eventFocus": "D-day 이벤트 기반 루틴 포커스 한 줄 (해요체)",
-  "am": [
-    {
-      "step": 1,
-      "category": "클렌징",
-      "product": "약산성 폼클렌저",
-      "instruction": "사용 방법 1-2줄 (해요체)",
-      "tip": "팁 한 줄 (해요체)",
-      "oliveyoungQuery": "올리브영 검색어"
-    }
-  ],
-  "pm": [
-    {
-      "step": 1,
-      "category": "더블클렌징",
-      "product": "클렌징 오일",
-      "instruction": "사용 방법 (해요체)",
-      "tip": "팁 (해요체)",
-      "oliveyoungQuery": "검색어"
-    }
-  ]
-}`;
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.EXPO_PUBLIC_OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 1500,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error?.message ?? `OpenAI ${response.status}`);
-      }
-      const text = data.choices[0].message.content;
-      const routine: GeneratedRoutine = JSON.parse(cleanJson(text));
-      await AsyncStorage.setItem('meve_routine', JSON.stringify(routine));
-      setGeneratedRoutine(routine);
-    } catch (e: any) {
-      Alert.alert('루틴 생성 실패', e?.message ?? '다시 시도해 주세요.');
-    } finally {
-      setGeneratingRoutine(false);
-    }
-  };
-
-  const regenerateRoutine = async () => {
-    try {
-      await AsyncStorage.removeItem('meve_routine');
-    } catch {}
-    setGeneratedRoutine(null);
-    generateRoutine();
-  };
-
-  // ── Ingredient analysis ─────────────────────────────────────────────────────
-
-  const analyzeIngredients = async () => {
-    if (!lastScan) {
-      Alert.alert('피부 스캔 필요', '먼저 AI 피부 스캔을 해주세요');
-      return;
-    }
-    setIsAnalyzing(true);
-    try {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.EXPO_PUBLIC_OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          max_tokens: 800,
-          messages: [
-            {
-              role: 'user',
-              content: `You are a Korean skincare expert.
-Skin analysis result: ${JSON.stringify(lastScan)}
-Upcoming event: ${eventType ?? 'none'}, ${daysLeft ?? 'unknown'} days away.
-Return ONLY valid JSON no markdown:
-{
-  "recommended": [{"name":"성분명","benefit":"효능","reason":"이유"}],
-  "avoid": [{"name":"성분명","reason":"이유"}],
-  "eventTip": "D-day 케어 팁 한 줄"
-}
-Max 4 recommended, 3 avoid. All text in Korean.`,
-            },
-          ],
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message ?? 'OpenAI 오류');
-      const content = data.choices[0].message.content.trim();
-      const jsonMatch = content.match(/[{[][\s\S]*[}\]]/);
-      if (!jsonMatch) throw new Error('JSON 파싱 실패');
-      const result: IngredientResult = JSON.parse(jsonMatch[0]);
-      setIngredientResult(result);
-      await AsyncStorage.setItem('meve_ingredients', JSON.stringify(result));
-    } catch (e: any) {
-      Alert.alert('분석 실패', e?.message ?? '다시 시도해 주세요.');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // Product grid sizing
+  const productCardW = (width - 36 - 12) / 2; // 18px screen padding × 2 + 12 gap
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.screenHeader}>
-          <Image source={logo} style={styles.headerLogo} />
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <TopBar />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* ── 1. Header ─────────────────────────────────────────────── */}
+        <View style={styles.header}>
+          <Text style={styles.eyebrow}>Skin</Text>
+          <Text style={styles.title}>스킨케어</Text>
+          <Text style={styles.subline}>
+            {`Icy Glow · ${profile.skinType ?? '건성'} · 모공케어 맞춤`}
+          </Text>
         </View>
 
-        {/* ── 1. D-DAY BANNER ────────────────────────────────────────────── */}
-        {eventInfo && daysLeft != null && (
-          <LinearGradient
-            colors={eventInfo.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.ddayBanner}
-          >
-            <View style={styles.ddayRow}>
-              <Ionicons
-                name={EVENT_ICONS[eventType!] ?? 'calendar-outline'}
-                size={22}
-                color={Colors.textPrimary}
-              />
-              <Text style={styles.ddayTitle}>
-                {eventInfo.label}까지 {daysLeft}일
-              </Text>
+        {/* ── 2. Profile card (toggle) ──────────────────────────────── */}
+        <View style={styles.profileCard}>
+          <View style={styles.profileTop}>
+            <LinearGradient
+              colors={['#D8E4F2', '#DCD4EC']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <ShimmerSweep duration={4500} widthRatio={0.3} />
+            <View style={styles.profileTopRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.profileDnaCode}>GCS · YOUR DNA</Text>
+                <Text style={styles.profileDnaName}>Icy Glow</Text>
+                <Text style={styles.profileDnaKr}>아이시 글로우</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setProfileExpanded((v) => !v)}
+                style={styles.profileToggle}
+                hitSlop={8}
+              >
+                <Ionicons
+                  name={profileExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color="#2D3A6B"
+                />
+              </TouchableOpacity>
             </View>
-            <Text style={styles.ddayTip}>{eventInfo.tip}</Text>
-          </LinearGradient>
-        )}
-
-        {/* ── 2. AI 피부 스캔 ─────────────────────────────────────────────── */}
-        <TouchableOpacity
-          style={styles.scanCard}
-          onPress={() => navigation.navigate('FaceScanner')}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="scan-outline" size={28} color="#fff" />
-          <View style={styles.scanCardText}>
-            <Text style={styles.scanCardTitle}>AI 피부 스캔</Text>
-            <Text style={styles.scanCardDesc}>AI가 피부 상태를 분석해드려요</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
-        </TouchableOpacity>
-
-        {/* ── 2-0. 내 피부 여정 (MEVE-242) ────────────────────────────────── */}
-        <TouchableOpacity
-          style={styles.journalEntryCard}
-          onPress={() => navigation.navigate('SkinJournal')}
-          activeOpacity={0.85}
-        >
-          <View style={styles.journalEntryLeft}>
-            <Text style={styles.journalEntryTitle}>내 피부 여정 📊</Text>
-            <Text style={styles.journalEntrySub}>
-              스코어 변화 · 시술 기록 · 제품 기록
+            <View style={styles.profileTagsDivider} />
+            <Text style={styles.profileTags}>
+              {`${profile.skinType ?? '건성'} · ${profile.skinConcerns?.[0] ?? '모공'} · 건조 · 글로우`}
             </Text>
           </View>
 
-          {lastSkinScore != null && (
-            <View style={styles.journalScoreBadge}>
-              <Text style={styles.journalScoreText}>{lastSkinScore}점</Text>
-              {journalScoreDiff !== null && journalScoreDiff !== 0 && (
+          {profileExpanded && (
+            <View style={styles.profileExpanded}>
+              <ProfileRow label="피부 타입"      value={profile.skinType ?? '미설정'} />
+              <ProfileRow label="피부 고민"      value={profile.skinConcerns?.join(' · ') ?? '미설정'} />
+              <ProfileRow label="베이스"         value={profile.skinTone ?? '미설정'} />
+              <ProfileRow label="퍼스널 컬러"    value={profile.personalColor ?? '미설정'} />
+              <ProfileRow label="케어 우선순위"  value={'수분 · 진정'} />
+              <TouchableOpacity onPress={goJournal} style={styles.profileFullLink} hitSlop={6}>
+                <Text style={styles.profileFullLinkText}>See full profile →</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* ── 3. Today's routine ────────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardEyebrow}>Today's routine</Text>
+            <Text style={styles.cardMeta}>5단계</Text>
+          </View>
+          <View style={styles.routineDotsRow}>
+            <View style={styles.routineDotsLeft}>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.routineDot,
+                    i < 3 && styles.routineDotDone,
+                    i === 3 && styles.routineDotNext,
+                  ]}
+                />
+              ))}
+            </View>
+            <Text style={styles.routineProgress}>AM 3/5</Text>
+          </View>
+          <View style={{ marginTop: 12 }}>
+            <GradientPill
+              label="4단계 시작"
+              onPress={goRoutineManage}
+              size="md"
+              fullWidth
+            />
+          </View>
+        </View>
+
+        {/* ── 4. Recommended ingredients ────────────────────────────── */}
+        <TouchableOpacity
+          onPress={goIngredients}
+          activeOpacity={0.9}
+          style={[styles.card, { paddingVertical: 12, paddingHorizontal: 12 }]}
+        >
+          <Text style={styles.cardEyebrowCompact}>Ingredients · 추천 성분</Text>
+          <View style={styles.ingredientChips}>
+            {RECOMMENDED_INGREDIENTS.map((ing) => (
+              <View key={ing} style={styles.chip}>
+                <Text style={styles.chipText}>{ing}</Text>
+              </View>
+            ))}
+          </View>
+        </TouchableOpacity>
+
+        {/* ── 5. Skin record ────────────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardEyebrow}>Skin record</Text>
+            <TouchableOpacity onPress={goJournal} hitSlop={6}>
+              <Text style={styles.cardLink}>자세히 보기 →</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.scoreRow}>
+            <Text style={styles.scoreBig}>{skinScore != null ? skinScore : '—'}</Text>
+            {scoreDiff != null && scoreDiff !== 0 && (
+              <View
+                style={[
+                  styles.scoreDiff,
+                  {
+                    backgroundColor:
+                      scoreDiff > 0 ? 'rgba(76,175,80,0.12)' : 'rgba(244,67,54,0.12)',
+                  },
+                ]}
+              >
                 <Text
                   style={[
-                    styles.journalScoreDiff,
-                    {
-                      color: journalScoreDiff > 0 ? '#7CB798' : '#FF6B6B',
-                    },
+                    styles.scoreDiffText,
+                    { color: scoreDiff > 0 ? '#388E3C' : '#C62828' },
                   ]}
                 >
-                  {journalScoreDiff > 0 ? '+' : ''}
-                  {journalScoreDiff}
+                  {scoreDiff > 0 ? `+${scoreDiff}` : scoreDiff}
                 </Text>
-              )}
-            </View>
-          )}
-
-          <Ionicons name="chevron-forward" size={18} color="#C0C0CC" />
-        </TouchableOpacity>
-
-        {/* ── 2-1. 내 피부 케어 플랜 ──────────────────────────────────────── */}
-        <View style={styles.carePlanCard}>
-          <Text style={styles.carePlanTitle}>내 피부 케어 플랜 ✨</Text>
-          {eventType && daysLeft != null && (
-            <Text style={styles.carePlanSubtitle}>
-              {EVENT_INFO[eventType]?.label ?? eventType} D-{daysLeft} 기준으로 정리했어요
-            </Text>
-          )}
-
-          <View style={styles.carePlanRow}>
-            <TouchableOpacity
-              style={styles.carePlanItem}
-              onPress={() => navigation.navigate('RoutineCoachChat')}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.carePlanItemIcon}>🏠</Text>
-              <Text style={styles.carePlanItemLabel}>홈케어</Text>
-              <Text style={styles.carePlanItemSub}>루틴 보기</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.carePlanItem, styles.carePlanItemHighlight]}
-              onPress={() => navigation.navigate('TreatmentRecommend', { mode: 'skin' })}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.carePlanItemIcon}>👩‍⚕️</Text>
-              <Text style={styles.carePlanItemLabel}>피부과</Text>
-              <Text style={styles.carePlanItemSub}>시술 추천</Text>
-              <View style={styles.newBadge}>
-                <Text style={styles.newBadgeText}>NEW</Text>
               </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.carePlanItem}
-              onPress={analyzeIngredients}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.carePlanItemIcon}>🧴</Text>
-              <Text style={styles.carePlanItemLabel}>성분</Text>
-              <Text style={styles.carePlanItemSub}>분석 보기</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ── 3. 성분 스캔하기 ────────────────────────────────────────────── */}
-        <TouchableOpacity
-          style={styles.ingredientScanCard}
-          onPress={() => navigation.navigate('IngredientScanner')}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="flask-outline" size={24} color={Colors.accent} />
-          <View style={styles.scanCardText}>
-            <Text style={styles.ingredientScanTitle}>성분 스캔하기</Text>
-            <Text style={styles.ingredientScanDesc}>제품 성분표를 스캔해요</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
-        </TouchableOpacity>
-
-        {/* ── 4. 맞춤 성분 분석 ───────────────────────────────────────────── */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>내 피부 맞춤 성분</Text>
-            <TouchableOpacity
-              style={styles.analyzeBtn}
-              onPress={analyzeIngredients}
-              disabled={isAnalyzing}
-              activeOpacity={0.8}
-            >
-              {isAnalyzing ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.analyzeBtnText}>
-                  {ingredientResult ? '다시 분석' : '분석하기'}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {!scanLoaded ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator color={Colors.accent} />
-            </View>
-          ) : !lastScan && !ingredientResult ? (
-            <View style={styles.emptyBox}>
-              <Ionicons name="flask-outline" size={28} color={Colors.textDisabled} />
-              <Text style={styles.emptyText}>
-                AI 피부 스캔 후 맞춤 성분을 분석해드려요
-              </Text>
-            </View>
-          ) : isAnalyzing ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator color={Colors.accent} size="large" />
-              <Text style={styles.loadingText}>맞춤 성분 분석 중...</Text>
-            </View>
-          ) : ingredientResult ? (
-            <>
-              {/* 추천 성분 — collapsible */}
-              <TouchableOpacity
-                style={styles.ingredientFoldHeader}
-                onPress={toggleRecommended}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.ingredientFoldTitle}>추천 성분</Text>
-                <View style={styles.ingredientFoldPill}>
-                  <Text style={styles.ingredientFoldPillText}>
-                    {ingredientResult.recommended.length}개
-                  </Text>
-                </View>
-                <View style={{ flex: 1 }} />
-                <Ionicons
-                  name="chevron-down-outline"
-                  size={18}
-                  color="#5BA3D9"
-                  style={{
-                    transform: [{ rotate: recommendedExpanded ? '180deg' : '0deg' }],
-                  }}
-                />
-              </TouchableOpacity>
-              {recommendedExpanded &&
-                ingredientResult.recommended.map((item, i) => (
-                  <View key={i} style={[styles.ingredientCard, styles.recommendedBorder]}>
-                    <Text style={styles.ingredientName}>{item.name}</Text>
-                    <Text style={styles.ingredientBenefit}>{item.benefit}</Text>
-                    <Text style={styles.ingredientReason}>{item.reason}</Text>
-                    <TouchableOpacity
-                      onPress={() =>
-                        Linking.openURL(
-                          `https://www.oliveyoung.co.kr/store/search/getSearchMain.do?query=${encodeURIComponent(item.name)}`
-                        )
-                      }
-                    >
-                      <Text style={styles.oliveyoungLink}>올리브영에서 보기 →</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-
-              {/* 피해야 할 성분 — collapsible */}
-              <TouchableOpacity
-                style={[styles.ingredientFoldHeader, styles.ingredientFoldHeaderAvoid]}
-                onPress={toggleAvoid}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.ingredientFoldTitle, { color: '#FF6B6B' }]}>
-                  피해야할 성분
-                </Text>
-                <View style={[styles.ingredientFoldPill, { backgroundColor: '#FF6B6B' }]}>
-                  <Text style={styles.ingredientFoldPillText}>
-                    {ingredientResult.avoid.length}개
-                  </Text>
-                </View>
-                <View style={{ flex: 1 }} />
-                <Ionicons
-                  name="chevron-down-outline"
-                  size={18}
-                  color="#FF6B6B"
-                  style={{
-                    transform: [{ rotate: avoidExpanded ? '180deg' : '0deg' }],
-                  }}
-                />
-              </TouchableOpacity>
-              {avoidExpanded &&
-                ingredientResult.avoid.map((item, i) => (
-                  <View key={i} style={[styles.ingredientCard, styles.avoidBorder]}>
-                    <Text style={styles.ingredientName}>{item.name}</Text>
-                    <Text style={styles.ingredientReason}>{item.reason}</Text>
-                  </View>
-                ))}
-
-              {/* Event tip */}
-              {ingredientResult.eventTip && (
-                <View style={styles.eventTipBox}>
-                  <Ionicons name="sparkles-outline" size={14} color={Colors.accent} />
-                  <Text style={styles.eventTipText}>{ingredientResult.eventTip}</Text>
-                </View>
-              )}
-            </>
-          ) : null}
-        </View>
-
-        {/* ── 5. 내 루틴 ──────────────────────────────────────────────────── */}
-        <View style={styles.section}>
-          <View style={styles.routineSectionHeader}>
-            <Text style={styles.sectionTitle}>내 루틴</Text>
-            <View style={{ flex: 1 }} />
-            {generatedRoutine && !generatingRoutine && (
-              <TouchableOpacity
-                style={styles.regenBtn}
-                onPress={regenerateRoutine}
-                activeOpacity={0.75}
-                hitSlop={6}
-              >
-                <Ionicons name="refresh" size={14} color="#8A8A9A" />
-                <Text style={styles.regenBtnText}>새로고침</Text>
-              </TouchableOpacity>
             )}
           </View>
-
-          {generatedRoutine?.eventFocus && (
-            <View style={styles.eventFocusCard}>
-              <Text style={styles.eventFocusText}>
-                💙 {generatedRoutine.eventFocus}
-              </Text>
-            </View>
-          )}
-
-          {!generatedRoutine && !generatingRoutine ? (
-            <View style={styles.generatedEmpty}>
-              <Text style={styles.generatedEmptyEmoji}>💙</Text>
-              <Text style={styles.generatedEmptyText}>
-                아직 루틴이 없어요.{'\n'}AI 루틴 코치에게 루틴을 만들어달라고 해봐요
-              </Text>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('RoutineBuilder')}
-                style={styles.generatedEmptyBtn}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.generatedEmptyBtnText}>루틴 만들기</Text>
-              </TouchableOpacity>
-            </View>
-          ) : generatingRoutine ? (
-            <View style={styles.generatedEmpty}>
-              <ActivityIndicator color="#5BA3D9" size="large" />
-              <Text style={styles.generatedEmptyText}>
-                맞춤 루틴을 만들고 있어요...
-              </Text>
-            </View>
-          ) : generatedRoutine ? (
-            <>
-              <View style={styles.generatedToggle}>
-                <TouchableOpacity
-                  onPress={() => setRoutineTab('am')}
+          <View style={styles.barChart}>
+            {Array.from({ length: 7 }, (_, i) => {
+              const scan = recentScans[i];
+              const score = scan?.score ?? 0;
+              const isLast = i === recentScans.length - 1 && score > 0;
+              return (
+                <View
+                  key={i}
                   style={[
-                    styles.generatedToggleBtn,
-                    routineTab === 'am' && styles.generatedToggleBtnActive,
+                    styles.bar,
+                    {
+                      height: Math.max(4, (score / 100) * 40),
+                      backgroundColor: isLast
+                        ? '#2D3A6B'
+                        : 'rgba(45,58,107,0.12)',
+                    },
                   ]}
-                >
-                  <Ionicons
-                    name="sunny-outline"
-                    size={16}
-                    color={routineTab === 'am' ? Colors.accent : '#999'}
-                  />
-                  <Text
-                    style={[
-                      styles.generatedToggleText,
-                      { color: routineTab === 'am' ? Colors.accent : '#999' },
-                    ]}
-                  >
-                    AM 루틴
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setRoutineTab('pm')}
-                  style={[
-                    styles.generatedToggleBtn,
-                    routineTab === 'pm' && styles.generatedToggleBtnActive,
-                  ]}
-                >
-                  <Ionicons
-                    name="moon-outline"
-                    size={16}
-                    color={routineTab === 'pm' ? '#A8D5E8' : '#999'}
-                  />
-                  <Text
-                    style={[
-                      styles.generatedToggleText,
-                      { color: routineTab === 'pm' ? '#A8D5E8' : '#999' },
-                    ]}
-                  >
-                    PM 루틴
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.routineStatus}>
-                <Ionicons
-                  name={routineCheckin[routineTab] ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={16}
-                  color={routineCheckin[routineTab] ? Colors.success : Colors.textDisabled}
                 />
-                <Text style={styles.routineStatusText}>
-                  {routineCheckin[routineTab]
-                    ? `오늘 ${routineTab.toUpperCase()} 홈에서 완료했어요`
-                    : `홈에서 오늘 ${routineTab.toUpperCase()} 루틴을 체크해 주세요`}
-                </Text>
-              </View>
-
-              <View style={styles.routineList}>
-                {(routineTab === 'am' ? generatedRoutine.am : generatedRoutine.pm).map(
-                  (step, idx, arr) => {
-                    const isExpanded = expandedSteps.has(step.step);
-                    return (
-                      <View
-                        key={`${routineTab}-${step.step}`}
-                        style={[
-                          styles.compactStep,
-                          idx < arr.length - 1 && styles.compactStepDivider,
-                        ]}
-                      >
-                        <TouchableOpacity
-                          style={styles.compactStepRow}
-                          onPress={() => toggleStep(step.step)}
-                          activeOpacity={0.75}
-                        >
-                          <View style={styles.compactStepNum}>
-                            <Text style={styles.compactStepNumText}>{step.step}</Text>
-                          </View>
-                          <Text style={styles.compactStepCategory}>{step.category}</Text>
-                          <Text
-                            style={styles.compactStepProduct}
-                            numberOfLines={1}
-                          >
-                            {step.product}
-                          </Text>
-                          <TouchableOpacity
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              Linking.openURL(
-                                `https://www.oliveyoung.co.kr/store/search/getSearchMain.do?query=${encodeURIComponent(
-                                  step.oliveyoungQuery || step.category
-                                )}`
-                              );
-                            }}
-                            hitSlop={6}
-                          >
-                            <Text style={styles.compactStepOlive}>올리브영 →</Text>
-                          </TouchableOpacity>
-                          <Ionicons
-                            name="chevron-down-outline"
-                            size={14}
-                            color="#8A8A9A"
-                            style={{
-                              marginLeft: 4,
-                              transform: [{ rotate: isExpanded ? '180deg' : '0deg' }],
-                            }}
-                          />
-                        </TouchableOpacity>
-                        {isExpanded && (
-                          <View style={styles.compactStepDetail}>
-                            <Text style={styles.compactStepInstruction}>
-                              {step.instruction}
-                            </Text>
-                            {step.tip ? (
-                              <Text style={styles.compactStepTip}>💡 {step.tip}</Text>
-                            ) : null}
-                          </View>
-                        )}
-                      </View>
-                    );
-                  }
-                )}
-              </View>
-            </>
-          ) : null}
+              );
+            })}
+          </View>
         </View>
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
+        {/* Sub-rows: 트러블 / 원인 분석 / 제품 반응 ─────────────────── */}
+        <View style={styles.subRowsGroup}>
+          <MenuRow
+            gradient={['#FFD4DC', '#EFC4D4']}
+            icon="alert-circle-outline"
+            title="트러블 기록"
+            sub="피부 뒤집어졌을 때 원인 찾기"
+            onPress={goTrouble}
+          />
+          <MenuRow
+            gradient={['#E4D4FF', '#D4C4F0']}
+            icon="pulse-outline"
+            title="AI 원인 분석"
+            sub="최근 7일 데이터 기반"
+            onPress={goAnalysis}
+          />
+          <MenuRow
+            gradient={['#D4E4FF', '#C4D4F0']}
+            icon="flask-outline"
+            title="제품 반응 기록"
+            sub="추적 중인 제품 확인"
+            onPress={goProductTrack}
+          />
+        </View>
 
-      {/* AI 코치 FAB */}
-      <TouchableOpacity
-        style={styles.coachFAB}
-        onPress={() => navigation.navigate('RoutineCoachChat')}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.coachFABIcon}>💬</Text>
-      </TouchableOpacity>
-      <View style={styles.coachFABLabel} pointerEvents="none">
-        <Text style={styles.coachFABLabelText}>AI 코치</Text>
-      </View>
+        {/* ── 6. Care plan ──────────────────────────────────────────── */}
+        <Text style={styles.sectionTitle}>케어 플랜</Text>
+        <View style={styles.subRowsGroup}>
+          <MenuRow
+            gradient={['#FFD4DC', '#E4D4FF']}
+            icon="calendar-outline"
+            title="D-day 케어 플랜"
+            sub={
+              profile.eventType && daysLeft != null
+                ? `${profile.eventType} D-${daysLeft} 단계별 가이드`
+                : '특별한 날을 설정하면 맞춤 플랜이 생겨요'
+            }
+            onPress={goDday}
+            iconSize={40}
+          />
+          <MenuRow
+            gradient={['#DCD4EC', '#C5CCE0']}
+            icon="medkit-outline"
+            title="AI 시술 추천"
+            sub="얼굴형·퍼스널컬러 기반"
+            onPress={goTreatment}
+            iconSize={40}
+          />
+        </View>
+
+        {/* ── 7. Routine management ─────────────────────────────────── */}
+        <Text style={styles.sectionTitle}>루틴 관리</Text>
+        <View style={styles.subRowsGroup}>
+          <MenuRow
+            gradient={['#D8E4F2', '#DCD4EC']}
+            icon="list-outline"
+            title="내 루틴 관리"
+            sub="AM/PM 루틴 보기·수정·생성"
+            onPress={goRoutineManage}
+          />
+          <MenuRow
+            gradient={['#E4D4FF', '#D4E4FF']}
+            icon="refresh-outline"
+            title="루틴 다시 만들기"
+            sub="AI가 새 루틴을 추천"
+            onPress={goRoutineRebuild}
+          />
+        </View>
+
+        {/* ── 8. For you · 스킨케어 (shop) ──────────────────────────── */}
+        <View style={styles.forYouHeader}>
+          <Text style={styles.forYouTitle}>For you · 스킨케어</Text>
+          <TouchableOpacity hitSlop={6}>
+            <Text style={styles.cardLink}>all →</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryRow}
+        >
+          {CATEGORIES.map((cat) => {
+            const active = cat === activeCategory;
+            return (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setActiveCategory(cat)}
+                style={[
+                  styles.categoryChip,
+                  active && styles.categoryChipActive,
+                ]}
+                activeOpacity={0.85}
+              >
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    active && styles.categoryChipTextActive,
+                  ]}
+                >
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.productGrid}>
+          {RECOMMENDED_PRODUCTS.map((p) => (
+            <View
+              key={p.name}
+              style={[styles.productCard, { width: productCardW }]}
+            >
+              <LinearGradient
+                colors={p.swatch}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.productImage}
+              />
+              <Text style={styles.productBrand} numberOfLines={1}>{p.brand}</Text>
+              <Text style={styles.productName} numberOfLines={2}>{p.name}</Text>
+              <View style={styles.productBottomRow}>
+                <Text style={styles.productMatch}>{p.match}</Text>
+                <Text style={styles.productPrice}>{p.price}</Text>
+              </View>
+              <Text style={styles.productReason} numberOfLines={1}>{p.reason}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Sub-component: profile expanded row ─────────────────────────────────────
 
-const PAGE_BG = '#FDF6F9';
+const ProfileRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <View style={styles.profileRow}>
+    <Text style={styles.profileRowLabel}>{label}</Text>
+    <Text style={styles.profileRowValue}>{value}</Text>
+  </View>
+);
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: PAGE_BG },
-  scroll: { flex: 1 },
-  content: { paddingBottom: 80, gap: 12 },
-
-  screenHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 0,
-  },
-  headerLogo: {
-    width: 170,
-    height: 68,
-    resizeMode: 'contain',
-    alignSelf: 'flex-start',
-    marginLeft: -40,
-    marginBottom: -8,
-  },
-
-  // D-day banner
-  ddayBanner: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 16,
-    padding: 16,
-    gap: 6,
-  },
-  ddayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  ddayTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  ddayTip: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginLeft: 30,
-  },
-
-  // AI scan card
-  scanCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.accent,
-    borderRadius: 16,
-    marginHorizontal: 16,
-    padding: 18,
-    gap: 14,
-  },
-  scanCardText: { flex: 1 },
-  scanCardTitle: { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 2 },
-  scanCardDesc: { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
-
-  // Ingredient scan card
-  ingredientScanCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    padding: 16,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  ingredientScanTitle: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, marginBottom: 2 },
-  ingredientScanDesc: { fontSize: 12, color: Colors.textSecondary },
-
-  // Section
-  section: {
-    marginHorizontal: 16,
-    gap: 10,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  routineSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  samplePill: {
-    backgroundColor: Colors.accentLight,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: Radius.full,
-  },
-  samplePillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.accent,
-  },
-  routineEventLabel: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginTop: 2,
-    marginBottom: 4,
-  },
-  routineScanBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#fff',
-    borderRadius: Radius.md,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginBottom: 8,
-  },
-  routineScanBannerText: {
+  safe: {
     flex: 1,
-    fontSize: 12,
-    color: Colors.textPrimary,
-    lineHeight: 17,
-  },
-  routineStepCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: Radius.md,
-    padding: 12,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  routineStepNum: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.accentLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  routineStepNumText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.accent,
-  },
-  routineStepBody: {
-    flex: 1,
-    gap: 4,
-  },
-  routineStepCategory: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  routineStepDesc: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 18,
-  },
-  routineStepIngredient: {
-    fontSize: 12,
-    color: Colors.textPrimary,
-    fontWeight: '500',
-  },
-  subTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginTop: 4,
-  },
-  analyzeBtn: {
-    backgroundColor: Colors.accent,
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    minWidth: 70,
-    alignItems: 'center',
-  },
-  analyzeBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
+    backgroundColor: '#FBF5F6',
   },
 
-  // Loading / empty
-  loadingWrap: {
-    alignItems: 'center',
-    paddingVertical: Spacing.xl,
-    gap: Spacing.sm,
-  },
-  loadingText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  emptyBox: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 20,
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-
-  // Ingredient cards
-  ingredientCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  recommendedBorder: {
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.success,
-  },
-  avoidBorder: {
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.danger,
-  },
-  ingredientName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  ingredientBenefit: {
-    fontSize: 13,
-    color: Colors.accent,
-    fontWeight: '500',
-  },
-  ingredientReason: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    lineHeight: 18,
-  },
-  oliveyoungLink: {
-    fontSize: 12,
-    color: Colors.accent,
-    fontWeight: '500',
+  // Section 1: Header
+  header: {
+    paddingHorizontal: 18,
     marginTop: 4,
   },
-
-  // Event tip
-  eventTipBox: {
-    backgroundColor: '#FFF0F6',
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginTop: 4,
-  },
-  eventTipText: {
-    fontSize: 13,
-    color: Colors.accent,
-    flex: 1,
-    lineHeight: 19,
-    fontWeight: '500',
-  },
-
-  // Routine
-  routineToggle: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 3,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignSelf: 'flex-start',
-  },
-  routineToggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  routineToggleBtnActive: {
-    backgroundColor: Colors.accent,
-  },
-  routineToggleText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-  },
-  routineToggleTextActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  routineStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  routineStatusText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: Colors.textPrimary,
-  },
-  smallScanBtn: {
-    marginTop: 4,
-  },
-  smallScanBtnText: {
-    fontSize: 13,
-    color: Colors.accent,
-    fontWeight: '600',
-  },
-
-  // Generated routine
-  generatedToggle: {
-    flexDirection: 'row',
-    backgroundColor: '#F0E6EC',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 4,
-  },
-  generatedToggleBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 4,
-    backgroundColor: 'transparent',
-  },
-  generatedToggleBtnActive: {
-    backgroundColor: '#fff',
-  },
-  generatedToggleText: {
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  generatedStepCard: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  generatedStepHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  generatedStepNum: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-    backgroundColor: '#5BA3D9',
-  },
-  generatedStepNumText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  generatedStepCategory: {
-    fontWeight: '700',
-    fontSize: 14,
-    color: '#5BA3D9',
-  },
-  generatedStepProduct: {
-    fontWeight: '700',
-    fontSize: 14,
-    color: '#1A1A2E',
-    flexShrink: 1,
-  },
-  generatedStepInstruction: {
-    fontSize: 14,
-    color: '#1A1A2E',
-    lineHeight: 20,
-    marginTop: 4,
-  },
-  generatedStepTip: {
-    fontSize: 12,
-    color: '#8A8A9A',
+  eyebrow: {
+    fontFamily: 'Fraunces-LightItalic',
     fontStyle: 'italic',
+    fontSize: 12,
+    lineHeight: 14,
+    color: 'rgba(45,58,107,0.7)',
+  },
+  title: {
+    fontFamily: 'Pretendard-Thin',
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: -0.7,
+    color: '#1A1A1F',
+    fontWeight: '200',
+    marginTop: 2,
+  },
+  subline: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 10,
+    lineHeight: 14,
+    color: '#8E8E93',
     marginTop: 4,
   },
-  eventFocusCard: {
-    backgroundColor: '#E8F4FD',
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 4,
-  },
-  eventFocusText: {
-    fontSize: 13,
-    color: '#1A1A2E',
-    fontWeight: '500',
-    lineHeight: 19,
-  },
-  regenBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  regenBtnText: {
-    fontSize: 12,
-    color: '#8A8A9A',
-    fontWeight: '600',
-  },
-  // Collapsible ingredient headers
-  ingredientFoldHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 14,
-    backgroundColor: '#E8F4FD',
-    borderRadius: 12,
-    gap: 8,
-  },
-  ingredientFoldHeaderAvoid: {
-    backgroundColor: '#FFF0F5',
-  },
-  ingredientFoldTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#5BA3D9',
-  },
-  ingredientFoldPill: {
-    backgroundColor: '#5BA3D9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  ingredientFoldPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#fff',
-  },
 
-  // Compact routine steps
-  routineList: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
+  // Section 2: Profile card
+  profileCard: {
+    marginHorizontal: 18,
+    marginTop: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
     overflow: 'hidden',
   },
-  compactStep: {
-    backgroundColor: '#fff',
+  profileTop: {
+    padding: 14,
+    paddingHorizontal: 16,
+    position: 'relative',
   },
-  compactStepDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+  profileTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
-  compactStepRow: {
+  profileDnaCode: {
+    fontFamily: 'Menlo',
+    fontSize: 8,
+    lineHeight: 11,
+    letterSpacing: 3,
+    color: 'rgba(45,58,107,0.6)',
+  },
+  profileDnaName: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 22,
+    lineHeight: 26,
+    color: '#2D3A6B',
+    fontWeight: '300',
+    marginTop: 4,
+  },
+  profileDnaKr: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 9,
+    lineHeight: 12,
+    letterSpacing: 1.5,
+    color: 'rgba(45,58,107,0.7)',
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  profileToggle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileTagsDivider: {
+    height: 0.5,
+    backgroundColor: 'rgba(45,58,107,0.15)',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  profileTags: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 9,
+    lineHeight: 12,
+    color: 'rgba(45,58,107,0.7)',
+  },
+  profileExpanded: {
+    padding: 14,
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  profileRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  profileRowLabel: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 11,
+    color: '#8E8E93',
+  },
+  profileRowValue: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 12,
+    color: '#1A1A1F',
+    fontWeight: '500',
+  },
+  profileFullLink: {
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  profileFullLinkText: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 11,
+    color: '#2D3A6B',
+  },
+
+  // Generic card
+  card: {
+    marginHorizontal: 18,
+    marginTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
+    padding: 14,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  cardEyebrow: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 13,
+    lineHeight: 16,
+    color: '#2D3A6B',
+  },
+  cardEyebrowCompact: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#2D3A6B',
+    marginBottom: 8,
+  },
+  cardMeta: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 8,
+    color: '#8E8E93',
+    letterSpacing: 0.5,
+  },
+  cardLink: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 10,
+    color: '#8E8E93',
+  },
+
+  // Section 3: Today's routine
+  routineDotsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    gap: 6,
-    minHeight: 44,
+    justifyContent: 'space-between',
   },
-  compactStepNum: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#5BA3D9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  compactStepNumText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  compactStepCategory: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#5BA3D9',
-    marginRight: 6,
-  },
-  compactStepProduct: {
-    fontSize: 13,
-    color: '#1A1A2E',
-    flex: 1,
-  },
-  compactStepOlive: {
-    fontSize: 11,
-    color: '#5BA3D9',
-    fontWeight: '600',
-  },
-  compactStepDetail: {
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-    gap: 4,
-  },
-  compactStepInstruction: {
-    fontSize: 13,
-    color: '#1A1A2E',
-    lineHeight: 19,
-  },
-  compactStepTip: {
-    fontSize: 12,
-    color: '#8A8A9A',
-    fontStyle: 'italic',
-  },
-
-  // AI coach FAB
-  coachFAB: {
-    position: 'absolute',
-    bottom: 24,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#5BA3D9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#5BA3D9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 999,
-  },
-  coachFABIcon: {
-    fontSize: 24,
-  },
-  coachFABLabel: {
-    position: 'absolute',
-    bottom: 6,
-    right: 20,
-    width: 56,
-    alignItems: 'center',
-    zIndex: 998,
-  },
-  coachFABLabelText: {
-    fontSize: 10,
-    color: '#5BA3D9',
-    fontWeight: '600',
-  },
-  generatedStepOliveLink: {
-    fontSize: 12,
-    color: Colors.accent,
-    marginTop: 6,
-  },
-  generatedEmpty: {
-    alignItems: 'center',
-    padding: 32,
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  generatedEmptyEmoji: {
-    fontSize: 40,
-    marginBottom: 4,
-  },
-  generatedEmptyText: {
-    fontSize: 15,
-    color: '#5C525B',
-    marginTop: 12,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  generatedEmptyBtn: {
-    backgroundColor: Colors.accent,
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    marginTop: 16,
-  },
-  generatedEmptyBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-
-  // 내 피부 케어 플랜 (MEVE-241)
-  carePlanCard: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 20,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 4,
-    shadowColor: '#B0B0B0',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  carePlanTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1A2E',
-    marginBottom: 4,
-  },
-  carePlanSubtitle: {
-    fontSize: 12,
-    color: '#8A8A9A',
-    marginBottom: 12,
-  },
-  carePlanRow: {
+  routineDotsLeft: {
     flexDirection: 'row',
     gap: 8,
   },
-  carePlanItem: {
-    flex: 1,
-    backgroundColor: '#F8F9FC',
-    borderRadius: 14,
-    padding: 12,
-    alignItems: 'center',
+  routineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(45,58,107,0.15)',
   },
-  carePlanItemHighlight: {
-    backgroundColor: '#FFF0F5',
-    borderWidth: 1.5,
-    borderColor: '#FFC4D6',
+  routineDotDone: {
+    backgroundColor: '#2D3A6B',
   },
-  carePlanItemIcon: {
-    fontSize: 22,
-    marginBottom: 4,
+  routineDotNext: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#2D3A6B',
   },
-  carePlanItemLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1A1A2E',
-  },
-  carePlanItemSub: {
-    fontSize: 10,
-    color: '#8A8A9A',
-    marginTop: 2,
-  },
-  newBadge: {
-    backgroundColor: '#FF6B9D',
-    borderRadius: 50,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginTop: 4,
-  },
-  newBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '700',
+  routineProgress: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 11,
+    color: '#2D3A6B',
+    fontWeight: '500',
   },
 
-  // 내 피부 여정 entry card (MEVE-242)
-  journalEntryCard: {
+  // Section 4: Ingredient chips
+  ingredientChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 100,
+    backgroundColor: '#FBF5F6',
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
+  },
+  chipText: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 11,
+    color: '#1A1A1F',
+  },
+
+  // Section 5: Skin record
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  scoreBig: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 34,
+    lineHeight: 38,
+    color: '#2D3A6B',
+    fontWeight: '300',
+  },
+  scoreDiff: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 100,
+  },
+  scoreDiffText: {
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600',
+  },
+  barChart: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: 40,
+    paddingHorizontal: 2,
+  },
+  bar: {
+    width: 16,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+  },
+
+  // Sub-row group container
+  subRowsGroup: {
+    paddingHorizontal: 18,
+    marginTop: 12,
+    gap: 8,
+  },
+  menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    marginHorizontal: 16,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
+    gap: 12,
+  },
+  menuRowText: {
+    flex: 1,
+    gap: 2,
+  },
+  menuRowTitle: {
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: 13,
+    lineHeight: 16,
+    color: '#1A1A1F',
+    fontWeight: '600',
+  },
+  menuRowSub: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 10,
+    lineHeight: 14,
+    color: '#8E8E93',
+  },
+
+  // Section titles between groups
+  sectionTitle: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 13,
+    lineHeight: 16,
+    color: '#2D3A6B',
+    paddingHorizontal: 18,
+    marginTop: 16,
+    marginBottom: 4,
+  },
+
+  // Section 8: For you · 스킨케어
+  forYouHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    paddingHorizontal: 18,
+    marginTop: 16,
     marginBottom: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: '#5BA3D9',
-    shadowColor: '#B0B0B0',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 1,
-    gap: 10,
   },
-  journalEntryLeft: { flex: 1 },
-  journalEntryTitle: {
+  forYouTitle: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1A1A2E',
-    marginBottom: 2,
+    lineHeight: 18,
+    color: '#2D3A6B',
   },
-  journalEntrySub: {
-    fontSize: 12,
-    color: '#8A8A9A',
+  categoryRow: {
+    paddingHorizontal: 18,
+    gap: 6,
+    paddingBottom: 4,
   },
-  journalScoreBadge: {
+  categoryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
+  },
+  categoryChipActive: {
+    backgroundColor: '#2D3A6B',
+    borderColor: '#2D3A6B',
+  },
+  categoryChipText: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#8E8E93',
+    fontWeight: '500',
+  },
+  categoryChipTextActive: {
+    color: '#FFFFFF',
+  },
+  productGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 18,
+    gap: 12,
+    marginTop: 10,
+  },
+  productCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
+    overflow: 'hidden',
+    paddingBottom: 10,
+  },
+  productImage: {
+    width: '100%',
+    height: 90,
+  },
+  productBrand: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 8,
+    lineHeight: 11,
+    color: '#8E8E93',
+    paddingHorizontal: 10,
+    marginTop: 8,
+  },
+  productName: {
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#1A1A1F',
+    fontWeight: '600',
+    paddingHorizontal: 10,
+    marginTop: 2,
+  },
+  productBottomRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 4,
+    justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 50,
-    backgroundColor: '#EFF6FF',
+    marginTop: 4,
   },
-  journalScoreText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#5BA3D9',
+  productMatch: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#2D3A6B',
   },
-  journalScoreDiff: {
-    fontSize: 11,
-    fontWeight: '700',
+  productPrice: {
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#1A1A1F',
+    fontWeight: '600',
+  },
+  productReason: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 8,
+    lineHeight: 11,
+    color: '#8E8E93',
+    paddingHorizontal: 10,
+    marginTop: 2,
   },
 });

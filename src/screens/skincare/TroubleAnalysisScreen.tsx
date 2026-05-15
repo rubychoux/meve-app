@@ -377,18 +377,18 @@ high는 최대 3개, medium 최대 3개, low 최대 2개.
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFBFC' },
+  container: { flex: 1, backgroundColor: '#FBF5F6' },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FAFBFC',
+    backgroundColor: '#FBF5F6',
     padding: 40,
   },
   loadingTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginTop: 20,
     marginBottom: 8,
   },
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   errorEmoji: { fontSize: 48 },
   retryBtn: {
     marginTop: 24,
-    backgroundColor: '#5BA3D9',
+    backgroundColor: '#2D3A6B',
     borderRadius: 50,
     paddingHorizontal: 32,
     paddingVertical: 12,
@@ -415,12 +415,12 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
   },
-  backBtn: { fontSize: 22, color: '#1A1A2E', width: 32 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A2E' },
-  refreshBtn: { fontSize: 14, color: '#5BA3D9', fontWeight: '600' },
+  backBtn: { fontSize: 22, color: '#1A1A1F', width: 32 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1F' },
+  refreshBtn: { fontSize: 14, color: '#2D3A6B', fontWeight: '600' },
   content: { flex: 1 },
   summaryCard: {
-    backgroundColor: '#5BA3D9',
+    backgroundColor: '#2D3A6B',
     borderRadius: 20,
     padding: 20,
     marginHorizontal: 20,
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 12,
   },
   causeCard: {
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   causeIcon: { fontSize: 20 },
   causeMeta: { flex: 1 },
   causeLevel: { fontSize: 12, fontWeight: '600', marginBottom: 2 },
-  causeTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  causeTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
   causeReason: {
     fontSize: 14,
     color: '#5A5A7A',
@@ -493,11 +493,11 @@ const styles = StyleSheet.create({
   recoNumber: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#5BA3D9',
+    color: '#2D3A6B',
     width: 20,
     textAlign: 'center',
   },
-  recoText: { flex: 1, fontSize: 14, color: '#1A1A2E', lineHeight: 20 },
+  recoText: { flex: 1, fontSize: 14, color: '#1A1A1F', lineHeight: 20 },
   coachCta: {
     backgroundColor: '#E8F4FD',
     borderRadius: 14,
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     alignItems: 'center',
   },
-  coachCtaText: { fontSize: 14, fontWeight: '600', color: '#5BA3D9' },
+  coachCtaText: { fontSize: 14, fontWeight: '600', color: '#2D3A6B' },
   dataInfo: {
     backgroundColor: '#F5F5FA',
     borderRadius: 14,
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   insufficientTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 12,
   },
   insufficientItem: {
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
   },
   checkinBtn: {
     marginTop: 16,
-    backgroundColor: '#5BA3D9',
+    backgroundColor: '#2D3A6B',
     borderRadius: 50,
     padding: 14,
     alignItems: 'center',

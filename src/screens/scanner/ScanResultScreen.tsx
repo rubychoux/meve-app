@@ -187,7 +187,7 @@ export function ScanResultScreen() {
               </View>
               <View style={styles.comparisonItem}>
                 <Text style={styles.comparisonLabel}>이번</Text>
-                <Text style={[styles.comparisonScore, { color: '#5BA3D9' }]}>
+                <Text style={[styles.comparisonScore, { color: '#2D3A6B' }]}>
                   {currentScore}점
                 </Text>
                 <Text style={styles.comparisonDate}>오늘</Text>
@@ -337,7 +337,7 @@ export function ScanResultScreen() {
             <View style={styles.routineCard}>
               <View style={styles.routineHeader}>
                 <Ionicons name="moon-outline" size={16} color="#5BA3D9" />
-                <Text style={[styles.routineLabel, { color: '#5BA3D9' }]}>PM</Text>
+                <Text style={[styles.routineLabel, { color: '#2D3A6B' }]}>PM</Text>
               </View>
               <Text style={styles.routineText}>{result.routineAdvice.evening}</Text>
             </View>
@@ -632,13 +632,13 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: Radius.md,
     borderWidth: 1.5,
-    borderColor: '#5BA3D9',
+    borderColor: '#2D3A6B',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
-  shareBtnText: { fontSize: 14, fontWeight: '700', color: '#5BA3D9' },
+  shareBtnText: { fontSize: 14, fontWeight: '700', color: '#2D3A6B' },
   routineBtn: {
     backgroundColor: Colors.accent,
     borderRadius: 16,

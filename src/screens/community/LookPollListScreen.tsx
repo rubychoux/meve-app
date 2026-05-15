@@ -23,7 +23,7 @@ type Nav = NativeStackNavigationProp<MainStackParamList, 'LookPollList'>;
 type Tab = 'mine' | 'community';
 
 const PINK = '#FF6B9D';
-const BLUE = '#5BA3D9';
+const BLUE = '#2D3A6B';
 
 interface PollWithVoteCount extends LookPoll {
   voteCount: number;
@@ -287,7 +287,7 @@ export function LookPollListScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
   headerRight: { fontSize: 13, fontWeight: '600', color: PINK },
 
   tabs: {
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
   },
   thumbRow: { flexDirection: 'row', gap: 6 },
   thumb: { flex: 1, height: 100, borderRadius: 10, backgroundColor: '#F0E6EC' },
-  cardQ: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
+  cardQ: { fontSize: 14, fontWeight: '700', color: '#1A1A1F' },
   metaRow: { flexDirection: 'row', gap: 6 },
   metaText: { fontSize: 12, color: '#8A8A9A' },
   voteCta: {
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 6,
     textAlign: 'center',
   },
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     textAlign: 'center',
     letterSpacing: 4,
     marginBottom: 20,

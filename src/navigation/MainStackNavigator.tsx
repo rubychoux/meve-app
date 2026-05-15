@@ -31,11 +31,13 @@ import { PostDetailScreen } from '../screens/community/PostDetailScreen';
 import { RoutineCoachChatScreen } from '../screens/skincare/RoutineCoachChatScreen';
 import { NotificationScreen } from '../screens/community/NotificationScreen';
 // MEVE-249 — flattened from AIScanNavigator after Skin/Look tabs were removed.
-import { SkincareScreen } from '../screens/skincare/SkincareScreen';
+// (v3 tab structure: Skincare + Look are now BottomTabs, not stack screens.)
 import { FaceScannerScreen } from '../screens/scanner/FaceScannerScreen';
 import { IngredientScannerScreen } from '../screens/scanner/IngredientScannerScreen';
 import { IngredientResultScreen } from '../screens/scanner/IngredientResultScreen';
-import { LookScreen } from '../screens/look/LookScreen';
+// v3 — MyPage + Meve in MainStack (reachable from the shared TopBar).
+import { MyPageScreen } from '../screens/mypage/MyPageScreen';
+import { MeveScreen } from '../screens/meve/MeveScreen';
 // MEVE-250 — trouble check-in screen.
 import { TroubleCheckinScreen } from '../screens/skincare/TroubleCheckinScreen';
 // MEVE-251 — AI cause-analysis screen.
@@ -94,8 +96,8 @@ export function MainStackNavigator() {
       <Stack.Screen name="FaceScanner" component={FaceScannerScreen} />
       <Stack.Screen name="IngredientScanner" component={IngredientScannerScreen} />
       <Stack.Screen name="IngredientResult" component={IngredientResultScreen} />
-      <Stack.Screen name="Skincare" component={SkincareScreen} />
-      <Stack.Screen name="Look" component={LookScreen} />
+      <Stack.Screen name="MyPage" component={MyPageScreen} />
+      <Stack.Screen name="Meve" component={MeveScreen} />
       <Stack.Screen name="TroubleCheckin" component={TroubleCheckinScreen} />
       <Stack.Screen name="TroubleAnalysis" component={TroubleAnalysisScreen} />
       <Stack.Screen name="ProductTracking" component={ProductTrackingScreen} />

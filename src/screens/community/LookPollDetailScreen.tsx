@@ -397,7 +397,7 @@ export function LookPollDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -410,11 +410,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
   },
 
   content: { padding: 20, paddingBottom: 60, gap: 12 },
-  question: { fontSize: 18, fontWeight: '700', color: '#1A1A2E', lineHeight: 26 },
+  question: { fontSize: 18, fontWeight: '700', color: '#1A1A1F', lineHeight: 26 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   meta: { fontSize: 12, color: '#8A8A9A' },
   timeBadge: {
@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginTop: 10,
   },
   commentEmpty: { fontSize: 12, color: '#8A8A9A' },
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   commentName: { fontSize: 12, fontWeight: '700', color: PINK },
-  commentText: { fontSize: 13, color: '#1A1A2E', lineHeight: 19 },
+  commentText: { fontSize: 13, color: '#1A1A1F', lineHeight: 19 },
 
   commentInputRow: {
     flexDirection: 'row',
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 13,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
   },
   commentBtn: {
     width: 44,
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   inviteCode: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     letterSpacing: 3,
     textAlign: 'center',
     paddingVertical: 6,
@@ -571,5 +571,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   voterAvatarText: { fontSize: 15, fontWeight: '700', color: '#C44777' },
-  voterName: { fontSize: 11, color: '#1A1A2E', textAlign: 'center' },
+  voterName: { fontSize: 11, color: '#1A1A1F', textAlign: 'center' },
 });
