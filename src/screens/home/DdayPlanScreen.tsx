@@ -306,7 +306,7 @@ export function DdayPlanScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFBFC' },
+  safe: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     flex: 1,
     textAlign: 'center',
   },
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   phaseTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 4,
   },
 
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  checkItemText: { flex: 1, fontSize: 13, color: '#1A1A2E', lineHeight: 19 },
+  checkItemText: { flex: 1, fontSize: 13, color: '#1A1A1F', lineHeight: 19 },
   checkItemTextDone: {
     color: '#8A8A9A',
     textDecorationLine: 'line-through',
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   treatmentSectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
   },
   treatmentRow: {
     flexDirection: 'row',
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
   },
   treatmentRangeText: { fontSize: 11, fontWeight: '800' },
   treatmentContent: { flex: 1, gap: 2 },
-  treatmentName: { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
+  treatmentName: { fontSize: 13, fontWeight: '700', color: '#1A1A1F' },
   treatmentReason: { fontSize: 12, color: '#5A5A7A', lineHeight: 17 },
   treatmentCta: {
     borderRadius: 50,
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     textAlign: 'center',
     marginBottom: 8,
   },

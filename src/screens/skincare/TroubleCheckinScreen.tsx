@@ -428,7 +428,7 @@ export function TroubleCheckinScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFBFC' },
+  container: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -437,8 +437,8 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
   },
-  backBtn: { fontSize: 22, color: '#1A1A2E', width: 32 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A2E' },
+  backBtn: { fontSize: 22, color: '#1A1A1F', width: 32 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1F' },
   stepIndicator: {
     fontSize: 14,
     color: '#8A8A9A',
@@ -447,13 +447,13 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 3,
-    backgroundColor: '#F0F0F5',
+    backgroundColor: 'rgba(26,26,31,0.06)',
     marginHorizontal: 20,
     borderRadius: 2,
   },
   progressFill: {
     height: 3,
-    backgroundColor: '#5BA3D9',
+    backgroundColor: '#2D3A6B',
     borderRadius: 2,
   },
   content: { flex: 1 },
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 8,
   },
   stepSub: { fontSize: 14, color: '#8A8A9A', marginBottom: 24 },
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
   },
-  statusLabel: { fontSize: 16, fontWeight: '600', color: '#1A1A2E' },
+  statusLabel: { fontSize: 16, fontWeight: '600', color: '#1A1A1F' },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: {
     paddingHorizontal: 16,
@@ -485,10 +485,10 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
     backgroundColor: '#FFFFFF',
   },
-  chipActive: { borderColor: '#5BA3D9', backgroundColor: '#E8F4FD' },
+  chipActive: { borderColor: '#2D3A6B', backgroundColor: '#E8F4FD' },
   chipActiveDanger: { borderColor: '#FF6B6B', backgroundColor: '#FFF0F0' },
   chipText: { fontSize: 14, color: '#5A5A7A', fontWeight: '500' },
-  chipTextActive: { color: '#1A1A2E', fontWeight: '700' },
+  chipTextActive: { color: '#1A1A1F', fontWeight: '700' },
   onsetList: { gap: 10 },
   onsetItem: {
     flexDirection: 'row',
@@ -500,10 +500,10 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
     backgroundColor: '#FFFFFF',
   },
-  onsetItemActive: { borderColor: '#5BA3D9', backgroundColor: '#E8F4FD' },
+  onsetItemActive: { borderColor: '#2D3A6B', backgroundColor: '#E8F4FD' },
   onsetText: { fontSize: 15, color: '#5A5A7A', fontWeight: '500' },
-  onsetTextActive: { color: '#1A1A2E', fontWeight: '700' },
-  onsetCheck: { fontSize: 16, color: '#5BA3D9' },
+  onsetTextActive: { color: '#1A1A1F', fontWeight: '700' },
+  onsetCheck: { fontSize: 16, color: '#2D3A6B' },
   freeTextInput: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
     padding: 16,
     fontSize: 15,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     lineHeight: 24,
     minHeight: 160,
   },
@@ -528,12 +528,12 @@ const styles = StyleSheet.create({
     right: 0,
     padding: 20,
     paddingBottom: 40,
-    backgroundColor: '#FAFBFC',
+    backgroundColor: '#FBF5F6',
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F5',
+    borderTopColor: 'rgba(26,26,31,0.06)',
   },
   ctaBtn: {
-    backgroundColor: '#5BA3D9',
+    backgroundColor: '#2D3A6B',
     borderRadius: 50,
     padding: 16,
     alignItems: 'center',
@@ -553,6 +553,6 @@ const styles = StyleSheet.create({
   productTrackingHintText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#5BA3D9',
+    color: '#2D3A6B',
   },
 });

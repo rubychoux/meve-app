@@ -391,7 +391,7 @@ export function GlamSyncDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
 
   content: { padding: 20, paddingBottom: 60, gap: 12 },
   dday: { fontSize: 22, fontWeight: '800', color: PINK },
@@ -414,13 +414,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(220,220,230,0.5)',
     gap: 8,
   },
-  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#1A1A1F' },
 
   inviteLabel: { fontSize: 11, color: '#8A8A9A', fontWeight: '600', marginTop: 4 },
   inviteCode: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     letterSpacing: 3,
     textAlign: 'center',
     paddingVertical: 6,
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: { fontSize: 14, fontWeight: '700', color: '#C44777' },
-  memberName: { flex: 1, fontSize: 13, color: '#1A1A2E', fontWeight: '600' },
+  memberName: { flex: 1, fontSize: 13, color: '#1A1A1F', fontWeight: '600' },
   levelBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
   avgRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
   avgNum: { fontSize: 32, fontWeight: '800' },
   avgUnit: { fontSize: 14, color: '#8A8A9A' },
-  avgLabel: { fontSize: 13, color: '#1A1A2E', marginLeft: 6 },
+  avgLabel: { fontSize: 13, color: '#1A1A1F', marginLeft: 6 },
   progressTrack: {
     height: 8,
     backgroundColor: '#F0E6EC',
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%' },
 
   aiPending: { fontSize: 12, color: '#8A8A9A', lineHeight: 18 },
-  aiGuide: { fontSize: 13, color: '#1A1A2E', lineHeight: 21 },
+  aiGuide: { fontSize: 13, color: '#1A1A1F', lineHeight: 21 },
 
   finalizeBtn: {
     backgroundColor: PINK,
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   levelDotText: { fontSize: 11, fontWeight: '700' },
-  pickerLabel: { fontSize: 13, color: '#1A1A2E', textAlign: 'center', marginTop: 4 },
+  pickerLabel: { fontSize: 13, color: '#1A1A1F', textAlign: 'center', marginTop: 4 },
 
   doneTitle: { fontSize: 14, fontWeight: '700', color: PINK, textAlign: 'center' },
 });

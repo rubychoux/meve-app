@@ -62,6 +62,16 @@ export default function App() {
     NanumSquareRoundR: require('./assets/fonts/NanumSquareRoundR.ttf'),
     NanumSquareRoundB: require('./assets/fonts/NanumSquareRoundB.ttf'),
     NanumSquareRoundEB: require('./assets/fonts/NanumSquareRoundEB.ttf'),
+    // meve v1.5 design system — Pretendard (한글 + UI)
+    'Pretendard-Thin':     require('./assets/fonts/Pretendard-Thin.otf'),
+    'Pretendard-Light':    require('./assets/fonts/Pretendard-Light.otf'),
+    'Pretendard-Regular':  require('./assets/fonts/Pretendard-Regular.otf'),
+    'Pretendard-Medium':   require('./assets/fonts/Pretendard-Medium.otf'),
+    'Pretendard-SemiBold': require('./assets/fonts/Pretendard-SemiBold.otf'),
+    'Pretendard-Bold':     require('./assets/fonts/Pretendard-Bold.otf'),
+    // meve v1.5 design system — Fraunces Italic (영문 디스플레이)
+    'Fraunces-LightItalic': require('./assets/fonts/Fraunces_72pt-LightItalic.ttf'),
+    'Fraunces-Italic':      require('./assets/fonts/Fraunces_72pt-Italic.ttf'),
   });
 
   const loadProfile = useBeautyProfile((s) => s.loadProfile);

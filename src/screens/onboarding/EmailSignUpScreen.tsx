@@ -1,24 +1,33 @@
+/**
+ * EmailSignUpScreen — meve v1.5 디자인.
+ *
+ * SignatureWashBg + 3 input fields with focus state + GradientPill CTA.
+ * KeyboardAvoidingView로 키보드 올라올 때 CTA가 같이 올라옴.
+ */
+
 import React, { useState } from 'react';
 import {
-  View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { OnboardingStackParamList } from '../../types';
-import { Colors, Typography, Spacing, Radius } from '../../constants/theme';
+import { colors, spacing } from '../../theme';
+import { GradientPill, ShimmerDot, SignatureWashBg } from '../../components/signature';
 import { supabase } from '../../services/supabase';
 import { useAuthStore } from '../../store';
-import { PrimaryButton } from '../../components/ui';
 
 type Nav = NativeStackNavigationProp<OnboardingStackParamList, 'EmailSignUp'>;
+type FieldName = 'name' | 'email' | 'password';
 
 export function EmailSignUpScreen() {
   const navigation = useNavigation<Nav>();
@@ -27,11 +36,12 @@ export function EmailSignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState<FieldName | null>(null);
 
   const isValid = name.trim().length > 0 && email.includes('@') && password.length >= 6;
 
   const handleSignUp = async () => {
-    if (!isValid) return;
+    if (!isValid || loading) return;
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -52,7 +62,7 @@ export function EmailSignUpScreen() {
       }
 
       if (data.session) {
-        // 이메일 확인 비활성화 상태 — 세션 즉시 발급
+        // 이메일 확인 비활성화 — 즉시 세션 발급
         const { error: upsertError } = await supabase
           .from('user_profiles')
           .upsert({
@@ -74,93 +84,160 @@ export function EmailSignUpScreen() {
     }
   };
 
+  const inputStyle = (field: FieldName) => [
+    styles.input,
+    focused === field && styles.inputFocused,
+  ];
+
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.inner}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>← 뒤로</Text>
-        </TouchableOpacity>
+    <SignatureWashBg variant="soft">
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView
+          style={styles.kav}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.content}>
+            {/* Back */}
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.backBtn}
+            >
+              <Ionicons name="chevron-back" size={20} color="rgba(45,58,107,0.6)" />
+            </TouchableOpacity>
 
-        <Text style={styles.title}>이메일로 가입하기</Text>
+            {/* Title */}
+            <Text style={styles.title}>이메일로 가입하기</Text>
 
-        <View style={styles.fields}>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>이름</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="이름을 입력해 주세요"
-              placeholderTextColor={Colors.textSecondary}
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-              returnKeyType="next"
+            {/* Fields */}
+            <View style={styles.fields}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>이름</Text>
+                <TextInput
+                  style={inputStyle('name')}
+                  placeholder="이름을 입력해 주세요"
+                  placeholderTextColor="rgba(26,26,31,0.35)"
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                  returnKeyType="next"
+                  onFocus={() => setFocused('name')}
+                  onBlur={() => setFocused(null)}
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>이메일</Text>
+                <TextInput
+                  style={inputStyle('email')}
+                  placeholder="example@email.com"
+                  placeholderTextColor="rgba(26,26,31,0.35)"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onFocus={() => setFocused('email')}
+                  onBlur={() => setFocused(null)}
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>비밀번호</Text>
+                <TextInput
+                  style={inputStyle('password')}
+                  placeholder="6자 이상"
+                  placeholderTextColor="rgba(26,26,31,0.35)"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  onFocus={() => setFocused('password')}
+                  onBlur={() => setFocused(null)}
+                />
+              </View>
+            </View>
+
+            {/* Spacer pushes CTA to bottom */}
+            <View style={{ flex: 1 }} />
+
+            {/* CTA */}
+            <GradientPill
+              label={loading ? '가입 중...' : '가입하기'}
+              onPress={handleSignUp}
+              size="lg"
+              fullWidth
+              iconRight={null}
+              disabled={!isValid || loading}
             />
           </View>
+        </KeyboardAvoidingView>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>이메일</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="example@email.com"
-              placeholderTextColor={Colors.textSecondary}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>비밀번호</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="6자 이상"
-              placeholderTextColor={Colors.textSecondary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </View>
-        </View>
-
-        <PrimaryButton
-          label="가입하기"
-          onPress={handleSignUp}
-          loading={loading}
-          disabled={!isValid}
-        />
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        {/* Scattered glitter (outside KAV so they don't shift with keyboard) */}
+        <ShimmerDot top="10%"    left="18%"  size={2} delay={0}    duration={4000} />
+        <ShimmerDot top="22%"    right="14%" size={3} delay={1500} duration={5000} />
+        <ShimmerDot top="38%"    left="8%"   size={1} delay={2500} duration={3500} />
+        <ShimmerDot top="55%"    right="22%" size={2} delay={800}  duration={4500} />
+        <ShimmerDot bottom="22%" left="12%"  size={3} delay={2000} duration={5000} />
+        <ShimmerDot bottom="14%" right="18%" size={1} delay={3500} duration={3500} />
+      </SafeAreaView>
+    </SignatureWashBg>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
-  inner: {
+  safe: {
     flex: 1,
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xl,
   },
-  backBtn: { marginBottom: Spacing.xl },
-  backText: { ...Typography.body, color: Colors.accent },
-  title: { ...Typography.h2, marginBottom: Spacing.xl },
-  fields: { flex: 1, gap: Spacing.lg },
-  fieldGroup: { gap: Spacing.xs },
-  label: { ...Typography.caption, color: Colors.textSecondary, fontWeight: '600' },
+  kav: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+  },
+  backBtn: {
+    paddingVertical: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  title: {
+    marginTop: spacing.xxl,
+    marginBottom: spacing.xxl,
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: 24,
+    lineHeight: 30,
+    letterSpacing: -0.6,
+    color: '#1A1A1F',
+    fontWeight: '600',
+  },
+  fields: {
+    gap: spacing.lg,
+  },
+  fieldGroup: {
+    gap: 6,
+  },
+  label: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 12,
+    lineHeight: 16,
+    color: 'rgba(26,26,31,0.55)',
+    fontWeight: '500',
+  },
   input: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: 'rgba(45,58,107,0.15)',
     height: 52,
-    paddingHorizontal: Spacing.md,
-    ...Typography.body,
-    color: Colors.textPrimary,
-    letterSpacing: 0,
+    paddingHorizontal: 16,
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 15,
+    lineHeight: 20,
+    color: '#1A1A1F',
+    fontWeight: '400',
+  },
+  inputFocused: {
+    borderColor: 'rgba(45,58,107,0.4)',
   },
 });

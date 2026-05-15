@@ -211,7 +211,7 @@ export function EventSettingScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -220,14 +220,14 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 16,
   },
-  backBtn: { fontSize: 22, color: '#1A1A2E', width: 32 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A2E' },
+  backBtn: { fontSize: 22, color: '#1A1A1F', width: 32 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1F' },
   skipBtn: { fontSize: 14, color: '#8A8A9A' },
   content: { padding: 20, paddingBottom: 140 },
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 8,
   },
   sub: {
@@ -250,22 +250,22 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
     backgroundColor: '#FFFFFF',
   },
-  eventChipActive: { borderColor: '#5BA3D9', backgroundColor: '#E8F4FD' },
+  eventChipActive: { borderColor: '#2D3A6B', backgroundColor: '#E8F4FD' },
   eventChipText: { fontSize: 14, color: '#5A5A7A', fontWeight: '500' },
-  eventChipTextActive: { color: '#1A1A2E', fontWeight: '700' },
+  eventChipTextActive: { color: '#1A1A1F', fontWeight: '700' },
   customInput: {
     borderWidth: 1.5,
     borderColor: '#E5E5EA',
     borderRadius: 12,
     padding: 14,
     fontSize: 14,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 24,
   },
   dateLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 10,
   },
   datePicker: {
@@ -283,10 +283,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   datePickerEmoji: { fontSize: 28 },
-  datePickerText: { fontSize: 15, fontWeight: '600', color: '#1A1A2E' },
+  datePickerText: { fontSize: 15, fontWeight: '600', color: '#1A1A1F' },
   datePickerSub: {
     fontSize: 12,
-    color: '#5BA3D9',
+    color: '#2D3A6B',
     fontWeight: '600',
     marginTop: 2,
   },
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   previewTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#5BA3D9',
+    color: '#2D3A6B',
     marginBottom: 10,
   },
   previewItem: {
@@ -315,12 +315,12 @@ const styles = StyleSheet.create({
     right: 0,
     padding: 20,
     paddingBottom: 40,
-    backgroundColor: '#FAFBFC',
+    backgroundColor: '#FBF5F6',
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F5',
+    borderTopColor: 'rgba(26,26,31,0.06)',
   },
   ctaBtn: {
-    backgroundColor: '#5BA3D9',
+    backgroundColor: '#2D3A6B',
     borderRadius: 50,
     padding: 16,
     alignItems: 'center',

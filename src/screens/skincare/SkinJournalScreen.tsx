@@ -37,7 +37,7 @@ import {
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'SkinJournal'>;
 
-const SKY = '#5BA3D9';
+const SKY = '#2D3A6B';
 const PINK = '#FF6B9D';
 const GREEN = '#7CB798';
 const PURPLE = '#9B59B6';
@@ -526,7 +526,7 @@ function TodayLogTab() {
             새 제품 쓰기 시작했을 때 기록해요
           </Text>
         </View>
-        <Text style={[styles.troubleCheckinArrow, { color: '#5BA3D9' }]}>→</Text>
+        <Text style={[styles.troubleCheckinArrow, { color: '#2D3A6B' }]}>→</Text>
       </TouchableOpacity>
 
       {/* SECTION 2 — Self check */}
@@ -1799,7 +1799,7 @@ function HistoryTab() {
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFBFC' },
+  safe: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1807,7 +1807,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
 
   // Top tabs
   tabRow: {
@@ -1856,7 +1856,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 4,
   },
   emptyHint: {
@@ -1877,7 +1877,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   scanDoneIcon: { fontSize: 28 },
-  scanDoneTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  scanDoneTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A1F' },
   scanDoneScore: { fontSize: 13, color: SKY, fontWeight: '600', marginTop: 2 },
   scanViewBtn: { fontSize: 13, color: SKY, fontWeight: '700' },
   scanPromptRow: {
@@ -1886,7 +1886,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   scanPromptIcon: { fontSize: 28 },
-  scanPromptTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  scanPromptTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A1F' },
   scanPromptSub: { fontSize: 12, color: '#5A5A7A', marginTop: 2 },
   scanArrow: { fontSize: 18, color: SKY, fontWeight: '700' },
 
@@ -1897,7 +1897,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginVertical: 4,
   },
-  checkLabel: { width: 60, fontSize: 13, color: '#1A1A2E', fontWeight: '600' },
+  checkLabel: { width: 60, fontSize: 13, color: '#1A1A1F', fontWeight: '600' },
   emojiRow: { flexDirection: 'row', flex: 1, justifyContent: 'space-between' },
   emojiBtn: {
     width: 40,
@@ -1939,7 +1939,7 @@ const styles = StyleSheet.create({
   },
   checkboxChecked: { backgroundColor: SKY, borderColor: SKY },
   checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  productName: { flex: 1, fontSize: 13, color: '#1A1A2E' },
+  productName: { flex: 1, fontSize: 13, color: '#1A1A1F' },
   productCategory: { fontSize: 11, color: '#8A8A9A' },
 
   addProductBtn: {
@@ -1959,7 +1959,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  treatmentChipText: { fontSize: 13, color: '#1A1A2E', fontWeight: '600' },
+  treatmentChipText: { fontSize: 13, color: '#1A1A1F', fontWeight: '600' },
   treatmentChipDate: { fontSize: 11, color: '#8A8A9A' },
   addTreatmentBtn: {
     paddingVertical: 10,
@@ -1972,7 +1972,7 @@ const styles = StyleSheet.create({
   lifestyleSummary: {
     gap: 4,
   },
-  lifestyleSummaryText: { fontSize: 13, color: '#1A1A2E' },
+  lifestyleSummaryText: { fontSize: 13, color: '#1A1A1F' },
   lifestyleBtn: {
     paddingVertical: 10,
     alignItems: 'center',
@@ -1997,7 +1997,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   photoPlaceholderIcon: { fontSize: 36 },
-  photoPlaceholderText: { fontSize: 14, color: '#1A1A2E', fontWeight: '700' },
+  photoPlaceholderText: { fontSize: 14, color: '#1A1A1F', fontWeight: '700' },
   photoPlaceholderSub: { fontSize: 12, color: '#8A8A9A' },
 
   // Modal
@@ -2020,7 +2020,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
   fieldLabel: { fontSize: 12, color: '#8A8A9A', fontWeight: '600' },
   fieldInput: {
     borderWidth: 1,
@@ -2029,10 +2029,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#1A1A2E',
-    backgroundColor: '#FAFBFC',
+    color: '#1A1A1F',
+    backgroundColor: '#FBF5F6',
   },
-  fieldInputText: { fontSize: 14, color: '#1A1A2E' },
+  fieldInputText: { fontSize: 14, color: '#1A1A1F' },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   quickChip: {
     paddingHorizontal: 12,
@@ -2095,9 +2095,9 @@ const styles = StyleSheet.create({
   },
   insightTitle: { fontSize: 14, fontWeight: '700', color: SKY },
   trendRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  trendScore: { fontSize: 22, fontWeight: '800', color: '#1A1A2E' },
+  trendScore: { fontSize: 22, fontWeight: '800', color: '#1A1A1F' },
   trendLabel: { fontSize: 13, fontWeight: '700' },
-  insightText: { fontSize: 13, color: '#1A1A2E', lineHeight: 19 },
+  insightText: { fontSize: 13, color: '#1A1A1F', lineHeight: 19 },
   insightRecommend: {
     fontSize: 13,
     color: SKY,
@@ -2120,7 +2120,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 8,
   },
-  timelineTitle: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
+  timelineTitle: { fontSize: 14, fontWeight: '700', color: '#1A1A1F' },
   timelineBar: {
     height: 8,
     borderRadius: 4,
@@ -2155,7 +2155,7 @@ const styles = StyleSheet.create({
   timelineLabelLeft: { fontSize: 11, color: '#8A8A9A' },
   timelineLabelCenter: { fontSize: 11, color: PINK, fontWeight: '700' },
   timelineLabelRight: { fontSize: 11, color: '#8A8A9A' },
-  timelineScore: { fontSize: 13, color: '#1A1A2E', marginTop: 4 },
+  timelineScore: { fontSize: 13, color: '#1A1A1F', marginTop: 4 },
 
   // Calendar (MEVE — compact override of shared card style)
   calendarCard: {
@@ -2169,7 +2169,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 4,
   },
-  calHeaderText: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
+  calHeaderText: { fontSize: 14, fontWeight: '700', color: '#1A1A1F' },
   calWeekRow: {
     flexDirection: 'row',
     paddingVertical: 4,
@@ -2193,7 +2193,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     gap: 2,
   },
-  calDayText: { fontSize: 12, color: '#1A1A2E', fontWeight: '500' },
+  calDayText: { fontSize: 12, color: '#1A1A1F', fontWeight: '500' },
   calDots: {
     flexDirection: 'row',
     gap: 2,
@@ -2233,7 +2233,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
   },
   timelineItemDate: { fontSize: 11, color: '#8A8A9A' },
   timelineItemDetail: { fontSize: 12, color: '#5A5A7A', lineHeight: 17 },
@@ -2252,7 +2252,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   troubleCheckinIcon: { fontSize: 28 },
-  troubleCheckinTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  troubleCheckinTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A1F' },
   troubleCheckinSub: { fontSize: 12, color: '#8A8A9A', marginTop: 2 },
   troubleCheckinArrow: {
     fontSize: 18,
@@ -2271,7 +2271,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   analysisBtnIcon: { fontSize: 28 },
-  analysisBtnTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  analysisBtnTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A1F' },
   analysisBtnSub: { fontSize: 12, color: '#8A8A9A', marginTop: 2 },
-  analysisBtnArrow: { fontSize: 18, color: '#5BA3D9', marginLeft: 'auto' },
+  analysisBtnArrow: { fontSize: 18, color: '#2D3A6B', marginLeft: 'auto' },
 });

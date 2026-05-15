@@ -36,6 +36,8 @@ export interface BeautyProfile {
   // 스타일
   vibe: string | null;
   makeupIntensity: number | null;
+  // DNA — 8 beauty types (e.g. 'GCS', 'MCB'). Populated by face-scan flow.
+  beautyType: string | null;
   // 이벤트
   eventType: string | null;
   eventDate: string | null;
@@ -64,6 +66,7 @@ const INITIAL: BeautyProfile = {
   skinTone: null,
   vibe: null,
   makeupIntensity: null,
+  beautyType: null,
   eventType: null,
   eventDate: null,
   isProfileComplete: false,
@@ -128,6 +131,7 @@ export const useBeautyProfile = create<BeautyProfileStore>((set, get) => ({
         skinTone: profile?.skin_tone ?? faceAnalysis?.skinTone ?? null,
         vibe: profile?.vibe ?? vibe ?? null,
         makeupIntensity: profile?.makeup_intensity ?? null,
+        beautyType: profile?.beauty_type ?? null,
         eventType: normalizedEventType,
         eventDate: eventDate ?? null,
         lastSkinScore: lastScan?.overallScore ?? null,
@@ -168,6 +172,8 @@ export const useBeautyProfile = create<BeautyProfileStore>((set, get) => ({
         if (updates.vibe !== undefined) supabaseUpdates.vibe = updates.vibe;
         if (updates.makeupIntensity !== undefined)
           supabaseUpdates.makeup_intensity = updates.makeupIntensity;
+        if (updates.beautyType !== undefined)
+          supabaseUpdates.beauty_type = updates.beautyType;
 
         if (Object.keys(supabaseUpdates).length > 0) {
           await supabase

@@ -25,7 +25,7 @@ import {
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Notifications'>;
 
 const PINK = '#FF6B9D';
-const BLUE = '#5BA3D9';
+const BLUE = '#2D3A6B';
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -257,7 +257,7 @@ export function NotificationScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
   markAllBtn: { fontSize: 13, color: PINK, fontWeight: '700' },
 
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
   },
   typeBadgeText: { fontSize: 10 },
 
-  text: { fontSize: 13, color: '#1A1A2E', lineHeight: 19 },
+  text: { fontSize: 13, color: '#1A1A1F', lineHeight: 19 },
   time: { fontSize: 12, color: '#8A8A9A', marginTop: 2 },
 
   preview: {
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     padding: 32,
     gap: 8,
   },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
   emptyDesc: {
     fontSize: 13,
     color: '#8A8A9A',

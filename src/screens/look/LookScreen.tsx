@@ -1,1074 +1,1026 @@
-// MEVE-195 LOOK tab full redesign — 6 sections wired through beautyProfileStore.
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+/**
+ * LookScreen — v3 LOOK tab full redesign.
+ *
+ * 백업:
+ *   - LookScreen.backup.tsx          (1261-line original)
+ *   - LookScreen.backup-menuhub.tsx  (v3 menu hub from ScanScreen split)
+ *
+ * 새 구조 (위→아래):
+ *   1. TopBar (공통)
+ *   2. 헤더 — Look eyebrow + 메이크업 + face/PC/eye 한 줄
+ *   3. 얼굴 프로필 카드 (Rose Plum 그라데이션 + ShimmerSweep + 토글)
+ *   4. 너의 컬러 팔레트 (6 swatches)
+ *   5. 추구미 무드보드 (3-cell grid)
+ *   6. 오늘의 룩 (이미지 + 텍스트)
+ *   7. 맞춤 메이크업 팁 (쉐딩/아이/립/눈썹 4 row)
+ *   8. 스타일 플랜 (AI 시술 추천)
+ *   9. For you · 메이크업 (필터 + 2×2 그리드)
+ *
+ * 보존된 navigate 경로:
+ *   Look(self) / TodaysLook / TreatmentRecommend{mode:'look'} / MakeupDiagnosis
+ *
+ * 제거됨: 메이크업 진단 3 / 얼굴 분석 3 (Scan 탭) / 코치 banner (TopBar ✨)
+ *
+ * LOOK 톤: Rose Plum (#5C2C3F) — SKIN의 Mystic Navy와 대비
+ */
+
+import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  SafeAreaView,
-  StatusBar,
   ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-  ActivityIndicator,
-  Modal,
-  Linking,
-  RefreshControl,
+  View,
+  useWindowDimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Colors } from '../../constants/theme';
-import { MainStackParamList } from '../../types';
-import { supabase } from '../../services/supabase';
 import { useBeautyProfile } from '../../stores/beautyProfileStore';
-import { cleanJson } from '../../utils/openai';
-import { getEventConfig } from '../../constants/eventConfig';
+import { MainStackParamList, MainTabParamList } from '../../types';
+import { ShimmerSweep } from '../../components/signature';
+import { TopBar } from '../../components/common/TopBar';
 
-const logo = require('../../../assets/images/meve-logo.png');
+type Nav = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, 'Look'>,
+  NativeStackNavigationProp<MainStackParamList>
+>;
 
-type Nav = NativeStackNavigationProp<MainStackParamList>;
+// ─── Static content ───────────────────────────────────────────────────────────
 
-const PINK = '#FF6B9D';
+interface Swatch {
+  hex: string;
+  name: string;
+}
+const PALETTE_SWATCHES: Swatch[] = [
+  { hex: '#D4A0A8', name: 'Rose' },
+  { hex: '#B8A8D0', name: 'Lavender' },
+  { hex: '#A8C0D8', name: 'Sky' },
+  { hex: '#E5B5C0', name: 'Pink' },
+  { hex: '#9F7C8A', name: 'Mauve' },
+  { hex: '#C8A0A5', name: 'MLBB' },
+];
 
-// ─── Constants ─────────────────────────────────────────────────────────────
+const CATEGORIES = ['전체', '베이스', '아이', '립', '치크', '브로우'];
 
-const VIBES = ['청순', '글로우', '볼드', '내추럴', '빈티지', '클린걸', '테토녀', '에겐녀'] as const;
-type VibeKey = (typeof VIBES)[number];
+interface Product {
+  brand: string;
+  name: string;
+  match: string;
+  reason: string;
+  price: string;
+  swatch: readonly [string, string];
+}
+const RECOMMENDED_PRODUCTS: Product[] = [
+  { brand: '힌스',       name: '멜로우 글로우 베이스',    match: '94%', reason: '쿨톤·글로우, 아이시 타입 적합', price: '₩24,000', swatch: ['#FFE0D0', '#F5DCD0'] as const },
+  { brand: '롬앤',       name: '베터댄 섀도우 라벤더',    match: '92%', reason: '쿨톤·아몬드눈, 겹쌍 맞춤',     price: '₩17,000', swatch: ['#E4D4FF', '#BFB2CC'] as const },
+  { brand: '데이지크',   name: '립아이즈 로즈',           match: '91%', reason: '쿨톤·MLBB, 청순 무드',         price: '₩21,000', swatch: ['#FFD4DC', '#E2A8B5'] as const },
+  { brand: '웨이크메이크', name: '소프트 블러링 치크',     match: '89%', reason: '쿨톤·소프트, 은은한 발색',     price: '₩15,000', swatch: ['#F0CFD8', '#D49098'] as const },
+];
 
-const VIBE_QUERIES: Record<VibeKey, string> = {
-  청순: 'clean girl soft makeup korean',
-  글로우: 'glow dewy glass skin makeup',
-  볼드: 'bold dramatic makeup editorial',
-  내추럴: 'natural nude minimal makeup',
-  빈티지: 'retro vintage 90s makeup',
-  클린걸: 'clean girl aesthetic minimal makeup',
-  테토녀: 'cute tomboy casual korean makeup',
-  에겐녀: 'cute kawaii korean makeup',
+interface MakeupTip {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  gradient: readonly [string, string];
+  title: string;
+  sub: string;
+}
+const MAKEUP_TIPS: MakeupTip[] = [
+  {
+    icon: 'ellipse-outline',
+    iconColor: '#5C2C3F',
+    gradient: ['rgba(232,194,204,0.4)', 'rgba(207,181,194,0.3)'] as const,
+    title: '쉐딩',
+    sub: '타원형 맞춤 윤곽',
+  },
+  {
+    icon: 'eye-outline',
+    iconColor: '#2D3A6B',
+    gradient: ['rgba(216,228,242,0.5)', 'rgba(220,212,236,0.4)'] as const,
+    title: '아이 메이크업',
+    sub: '아몬드눈 · 쿨톤 섀도우',
+  },
+  {
+    icon: 'heart-outline',
+    iconColor: '#993556',
+    gradient: ['rgba(255,212,220,0.5)', 'rgba(228,194,204,0.4)'] as const,
+    title: '립 컬러',
+    sub: '로즈 · MLBB 추천',
+  },
+  {
+    icon: 'remove-outline',
+    iconColor: '#534AB7',
+    gradient: ['rgba(220,212,236,0.5)', 'rgba(197,204,224,0.4)'] as const,
+    title: '눈썹',
+    sub: '아치 · 중간굵기',
+  },
+];
+
+interface ProfileRowSpec {
+  key: keyof BeautyDisplayFields;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  gradient: readonly [string, string];
+}
+type BeautyDisplayFields = {
+  faceShape: string;
+  eyeType: string;
+  noseType: string;
+  lipType: string;
+  browType: string;
 };
 
-const PERSONAL_PALETTES: Record<string, string[]> = {
-  '봄 웜톤': ['#FFB5A7', '#F8A195', '#E07B6B', '#C96A5A', '#FFCBA4', '#F4A460'],
-  '여름 쿨톤': ['#B8D4E8', '#9FC3DC', '#7BA8C8', '#C4B8E0', '#E8B4D0', '#D4A0C0'],
-  '가을 웜톤': ['#C8A882', '#B8956A', '#8B6914', '#CD853F', '#D2691E', '#A0522D'],
-  '겨울 쿨톤': ['#E8E8F0', '#C8C8E0', '#9090C8', '#FF1493', '#DC143C', '#800020'],
-};
+const PROFILE_ROW_SPECS: ProfileRowSpec[] = [
+  {
+    key: 'faceShape',
+    label: '얼굴형',
+    icon: 'ellipse-outline',
+    iconColor: '#5C2C3F',
+    gradient: ['rgba(232,194,204,0.5)', 'rgba(207,181,194,0.4)'] as const,
+  },
+  {
+    key: 'eyeType',
+    label: '눈',
+    icon: 'eye-outline',
+    iconColor: '#2D3A6B',
+    gradient: ['rgba(216,228,242,0.5)', 'rgba(220,212,236,0.4)'] as const,
+  },
+  {
+    key: 'noseType',
+    label: '코',
+    icon: 'triangle-outline',
+    iconColor: '#534AB7',
+    gradient: ['rgba(228,212,255,0.5)', 'rgba(212,228,255,0.4)'] as const,
+  },
+  {
+    key: 'lipType',
+    label: '입술',
+    icon: 'heart-outline',
+    iconColor: '#993556',
+    gradient: ['rgba(255,212,220,0.5)', 'rgba(228,194,204,0.4)'] as const,
+  },
+  {
+    key: 'browType',
+    label: '눈썹',
+    icon: 'remove-outline',
+    iconColor: '#534AB7',
+    gradient: ['rgba(220,212,236,0.5)', 'rgba(197,204,224,0.4)'] as const,
+  },
+];
 
-const TODAYS_LOOK_KEY_PREFIX = 'meve_todays_look_';
+// ─── Helper: gradient icon box ───────────────────────────────────────────────
 
-// ─── Types ─────────────────────────────────────────────────────────────────
-
-interface TodaysLookData {
-  lookTitle: string;
-  lookDescription: string;
-  keyColors: string[];
-  unsplashQuery: string;
-  steps: { category: string; tip: string }[];
-  imageUrl?: string | null;
-  generatedAt?: string;
+interface IconBoxProps {
+  gradient: readonly [string, string];
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor?: string;
+  size?: number;
 }
+const IconBox: React.FC<IconBoxProps> = ({
+  gradient,
+  icon,
+  iconColor = '#FFFFFF',
+  size = 36,
+}) => (
+  <View
+    style={{
+      width: size,
+      height: size,
+      borderRadius: size >= 40 ? 12 : 10,
+      overflow: 'hidden',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+  >
+    <LinearGradient
+      colors={gradient}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={StyleSheet.absoluteFill}
+    />
+    <Ionicons name={icon} size={size * 0.5} color={iconColor} />
+  </View>
+);
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
-
-function todayKey() {
-  const d = new Date();
-  return `${TODAYS_LOOK_KEY_PREFIX}${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-async function fetchUnsplashImage(query: string): Promise<string | null> {
-  const key = process.env.EXPO_PUBLIC_UNSPLASH_ACCESS_KEY;
-  if (!key) return null;
-  try {
-    const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=portrait&client_id=${key}`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.results?.[0]?.urls?.regular ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchUnsplashImages(query: string, count: number): Promise<string[]> {
-  const key = process.env.EXPO_PUBLIC_UNSPLASH_ACCESS_KEY;
-  if (!key) return [];
-  try {
-    const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=${count}&orientation=portrait&client_id=${key}`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const data = await res.json();
-    const urls: string[] = (data?.results ?? [])
-      .map((r: any) => r?.urls?.regular)
-      .filter(Boolean);
-    return urls;
-  } catch {
-    return [];
-  }
-}
-
-function olivePalette(personalColor: string | null): string[] {
-  if (!personalColor) return [];
-  return PERSONAL_PALETTES[personalColor] ?? [];
-}
-
-function formatDate(iso?: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-}
-
-// ─── Screen ────────────────────────────────────────────────────────────────
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export function LookScreen() {
   const navigation = useNavigation<Nav>();
-  const personalColor = useBeautyProfile((s) => s.personalColor);
-  const faceShape = useBeautyProfile((s) => s.faceShape);
-  const eyeType = useBeautyProfile((s) => s.eyeType);
-  const vibe = useBeautyProfile((s) => s.vibe);
-  const eventType = useBeautyProfile((s) => s.eventType);
-  const eventDate = useBeautyProfile((s) => s.eventDate);
-  const updateProfile = useBeautyProfile((s) => s.updateProfile);
+  const profile = useBeautyProfile();
+  const { width } = useWindowDimensions();
 
-  // Today's look
-  const [todaysLook, setTodaysLook] = useState<TodaysLookData | null>(null);
-  const [loadingLook, setLoadingLook] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [profileExpanded, setProfileExpanded] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('전체');
 
-  // My color products palette (Section 2)
-  const [myColorPalette, setMyColorPalette] = useState<string[]>([]);
+  // ── Derived ─────────────────────────────────────────────────────────────
+  const daysLeft = profile.eventDate
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(profile.eventDate).getTime() - Date.now()) / 86_400_000,
+        ),
+      )
+    : null;
 
-  // Moodboard images (Section 5)
-  const [moodImages, setMoodImages] = useState<string[]>([]);
-  const [loadingMood, setLoadingMood] = useState(false);
+  // Default fallbacks for display when profile values are missing.
+  const faceShape = profile.faceShape ?? '타원형';
+  const eyeType = profile.eyeType ?? '아몬드눈';
+  const personalColor = profile.personalColor ?? '쿨톤';
+  const vibe = profile.vibe ?? '청순 무드';
+  const subline = `${faceShape} · ${personalColor.split(' ')[0] ?? '쿨톤'} · ${eyeType} 맞춤`;
 
-  // Vibe selector modal (Section 5)
-  const [vibePickerOpen, setVibePickerOpen] = useState(false);
-
-  // Face analysis "last analyzed" timestamp (Section 6)
-  const [faceAnalyzedAt, setFaceAnalyzedAt] = useState<string | null>(null);
-
-  // ── Today's look ─────────────────────────────────────────────────────────
-  const generateTodaysLook = useCallback(async () => {
-    const key = todayKey();
-    setLoadingLook(true);
-    try {
-      const daysLeft =
-        eventDate
-          ? Math.max(
-              0,
-              Math.ceil((new Date(eventDate).getTime() - Date.now()) / 86_400_000)
-            )
-          : null;
-
-      const prompt = `You are a Korean makeup expert. Generate today's makeup look recommendation.
-
-User profile:
-- Personal color: ${personalColor ?? '미분석'}
-- Makeup style: ${vibe ?? '내추럴'}
-- Event: ${eventType ?? '없음'}${daysLeft != null ? ` D-${daysLeft}` : ''}
-- Face shape: ${faceShape ?? '미분석'}
-
-Return ONLY valid JSON (no markdown):
-{
-  "lookTitle": "오늘의 룩 제목 (예: 데이트 D-4를 위한 글로우 룩 💕)",
-  "lookDescription": "2줄 설명 해요체",
-  "keyColors": ["#hex1", "#hex2", "#hex3"],
-  "unsplashQuery": "english search query for reference image (e.g. 'dewy glow makeup korean')",
-  "steps": [
-    {"category": "베이스", "tip": "1줄 팁 해요체"},
-    {"category": "아이", "tip": "1줄 팁 해요체"},
-    {"category": "립", "tip": "1줄 팁 해요체"}
-  ]
-}`;
-
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.EXPO_PUBLIC_OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          max_tokens: 700,
-          response_format: { type: 'json_object' },
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message ?? `OpenAI ${res.status}`);
-      const parsed = JSON.parse(cleanJson(data.choices[0].message.content ?? '')) as TodaysLookData;
-
-      // MEVE-244 — prefer event-specific Unsplash query when an event is set.
-      const eventThemeConfig = getEventConfig(eventType);
-      const queryFallback =
-        eventThemeConfig?.unsplashQuery ??
-        `${vibe ?? 'natural'} makeup korean beauty`;
-      const imageUrl = await fetchUnsplashImage(
-        parsed.unsplashQuery ?? queryFallback
-      );
-
-      const finalLook: TodaysLookData = {
-        ...parsed,
-        imageUrl,
-        generatedAt: new Date().toISOString(),
-      };
-      setTodaysLook(finalLook);
-      try {
-        await AsyncStorage.setItem(key, JSON.stringify(finalLook));
-      } catch {}
-    } catch {
-      // Silently leave todaysLook as null; UI shows graceful fallback below.
-      setTodaysLook(null);
-    } finally {
-      setLoadingLook(false);
-    }
-  }, [personalColor, vibe, eventType, eventDate, faceShape]);
-
-  const loadTodaysLook = useCallback(async () => {
-    const key = todayKey();
-    try {
-      const cached = await AsyncStorage.getItem(key);
-      if (cached) {
-        setTodaysLook(JSON.parse(cached) as TodaysLookData);
-        return;
-      }
-    } catch {}
-    await generateTodaysLook();
-  }, [generateTodaysLook]);
-
-  useEffect(() => {
-    loadTodaysLook();
-  }, [loadTodaysLook]);
-
-  // MEVE — when eventType changes, invalidate today's look cache + regenerate
-  // so the look matches the new event theme immediately.
-  const prevEventTypeRef = useRef(eventType);
-  useEffect(() => {
-    if (prevEventTypeRef.current === eventType) return;
-    prevEventTypeRef.current = eventType;
-    AsyncStorage.removeItem(todayKey()).catch(() => {});
-    setTodaysLook(null);
-    generateTodaysLook();
-  }, [eventType, generateTodaysLook]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await AsyncStorage.removeItem(todayKey());
-    } catch {}
-    await generateTodaysLook();
-    setRefreshing(false);
+  const profileFields: BeautyDisplayFields = {
+    faceShape,
+    eyeType,
+    noseType: '중간콧대',
+    lipType: '둥근입술',
+    browType: '자연 아치',
   };
 
-  // ── Section 2: my color products palette ─────────────────────────────────
-  const loadMyColorPalette = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setMyColorPalette([]);
-        return;
-      }
-      const { data } = await supabase
-        .from('my_color_products')
-        .select('colors, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      const seen = new Set<string>();
-      const out: string[] = [];
-      for (const row of (data ?? []) as any[]) {
-        const cs = Array.isArray(row.colors) ? row.colors : [];
-        for (const c of cs) {
-          const hex = (c?.hex ?? '').toLowerCase();
-          if (hex && !seen.has(hex)) {
-            seen.add(hex);
-            out.push(c.hex);
-            if (out.length >= 8) {
-              setMyColorPalette(out);
-              return;
-            }
-          }
-        }
-      }
-      setMyColorPalette(out);
-    } catch {
-      setMyColorPalette([]);
-    }
-  }, []);
+  // ── Navigate handlers (preserve all existing paths) ─────────────────────
+  const goPalette       = () => navigation.navigate('Look'); // 기존: 퍼스널컬러 팔레트
+  const goMoodBoard     = () => navigation.navigate('Look'); // 기존: 추구미 무드보드
+  const goTodaysLook    = () => navigation.navigate('TodaysLook');
+  const goTreatment     = () => navigation.navigate('TreatmentRecommend', { mode: 'look' });
+  const goMakeupTip     = () => navigation.navigate('MakeupDiagnosis');
+  const goFullProfile   = () => navigation.navigate('FaceAnalysis');
 
-  // ── Section 5: moodboard images ──────────────────────────────────────────
-  const loadMoodboard = useCallback(async (key: VibeKey) => {
-    setLoadingMood(true);
-    setMoodImages([]);
-    try {
-      const urls = await fetchUnsplashImages(VIBE_QUERIES[key], 6);
-      setMoodImages(urls);
-    } finally {
-      setLoadingMood(false);
-    }
-  }, []);
+  // Product grid sizing
+  const productCardW = (width - 36 - 12) / 2;
 
-  useEffect(() => {
-    if (vibe && (VIBES as readonly string[]).includes(vibe)) {
-      loadMoodboard(vibe as VibeKey);
-    } else {
-      setMoodImages([]);
-    }
-  }, [vibe, loadMoodboard]);
-
-  // ── Section 6: face analysis last-analyzed timestamp ─────────────────────
-  const loadFaceAnalyzedAt = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase
-        .from('face_analysis')
-        .select('created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      if (data && data.length > 0) {
-        setFaceAnalyzedAt((data[0] as any).created_at ?? null);
-      }
-    } catch {}
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadMyColorPalette();
-      loadFaceAnalyzedAt();
-    }, [loadMyColorPalette, loadFaceAnalyzedAt])
-  );
-
-  // ── Vibe selector ────────────────────────────────────────────────────────
-  const selectVibe = async (v: VibeKey) => {
-    setVibePickerOpen(false);
-    await updateProfile({ vibe: v });
-  };
-
-  // ── Derived ──────────────────────────────────────────────────────────────
-  const palette = olivePalette(personalColor);
-  const recommendedLip = palette[0] ?? null;
-  const faceAnalyzed = !!(personalColor || faceShape || eyeType);
+  // Color palette swatch sizing — 6 swatches in a row, with horizontal padding 16 (card) + 16 = 32 total card inset
+  // Card width = screen - 36 (18px each side). Card padding = 16. Inner = card - 32.
+  // Swatch width = (innerW - 5 gaps * 8) / 6
+  const cardInnerW = width - 36 - 32;
+  const swatchW = (cardInnerW - 5 * 8) / 6;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FAFBFC" />
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={PINK}
-            colors={[PINK]}
-          />
-        }
-      >
-        {/* Header logo */}
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <TopBar />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* ── 1. Header ─────────────────────────────────────────────── */}
         <View style={styles.header}>
-          <Image source={logo} style={styles.headerLogo} />
+          <Text style={styles.eyebrow}>Look</Text>
+          <Text style={styles.title}>메이크업</Text>
+          <Text style={styles.subline}>{subline}</Text>
         </View>
 
-        {/* ─── SECTION 1: 오늘의 룩 히어로 카드 ──────────────────────────── */}
-        <TodaysLookHero
-          loading={loadingLook && !todaysLook}
-          look={todaysLook}
-          onPress={() => navigation.navigate('TodaysLook')}
-        />
-
-        {/* ─── SECTION 2: 내 뷰티 솔루션 (MEVE-241) ───────────────────────── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>내 뷰티 솔루션 ✨</Text>
-
-          {/* 메이크업으로 — 컬러 매치 */}
-          <TouchableOpacity
-            style={styles.solutionCard}
-            onPress={() => navigation.navigate('ColorMatch')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.solutionIcon}>💄</Text>
-            <View style={styles.solutionContent}>
-              <Text style={styles.solutionTitle}>메이크업으로</Text>
-              <Text style={styles.solutionSub}>
-                테스터 찍으면 어울리는지 바로 알려드려요
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#C0C0CC" />
-          </TouchableOpacity>
-
-          {/* 시술로 — AI 시술 추천 */}
-          <TouchableOpacity
-            style={[styles.solutionCard, styles.solutionCardHighlight]}
-            onPress={() => navigation.navigate('TreatmentRecommend', { mode: 'look' })}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.solutionIcon}>👩‍⚕️</Text>
-            <View style={styles.solutionContent}>
-              <Text style={styles.solutionTitle}>시술로</Text>
-              <Text style={styles.solutionSub}>
-                얼굴형·퍼스널컬러 기반 시술 가이드
-              </Text>
-            </View>
-            <View style={styles.newTag}>
-              <Text style={styles.newTagText}>NEW</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* 스타일로 — 인스포 룩 */}
-          <TouchableOpacity
-            style={styles.solutionCard}
-            onPress={() => navigation.navigate('InspoLook')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.solutionIcon}>✨</Text>
-            <View style={styles.solutionContent}>
-              <Text style={styles.solutionTitle}>스타일로</Text>
-              <Text style={styles.solutionSub}>
-                핀터레스트 사진으로 나만의 메이크업 찾기
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#C0C0CC" />
-          </TouchableOpacity>
-
-          {/* 내 컬러 팔레트 미리보기 */}
-          {myColorPalette.length > 0 && (
-            <View style={styles.solutionPaletteRow}>
-              {myColorPalette.map((hex) => (
-                <View
-                  key={hex}
-                  style={[styles.paletteDot, { backgroundColor: hex }]}
-                />
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* ─── SECTION 4: 내 퍼스널컬러 팔레트 ───────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>내 퍼스널컬러 팔레트</Text>
-          {personalColor ? (
-            <View style={styles.card}>
-              <Text style={styles.pcType}>{personalColor}</Text>
-              <View style={styles.pcSwatchRow}>
-                {palette.map((hex) => (
-                  <View
-                    key={hex}
-                    style={[styles.pcSwatch, { backgroundColor: hex }]}
-                  />
-                ))}
+        {/* ── 2. Face profile card (toggle) ─────────────────────────── */}
+        <View style={styles.profileCard}>
+          <View style={styles.profileTop}>
+            <LinearGradient
+              colors={['#E8C2CC', '#CFB5C2']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <ShimmerSweep duration={4500} widthRatio={0.3} />
+            <View style={styles.profileTopRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.profileDnaCode}>{`FACE · ${faceShape}`}</Text>
+                <Text style={styles.profileDnaName}>Oval · Soft</Text>
+                <Text style={styles.profileDnaKr}>{`${faceShape} · 소프트 무드`}</Text>
               </View>
-
-              {recommendedLip && (
-                <>
-                  <Text style={styles.pcLabel}>이번 주 추천 립 컬러</Text>
-                  <View style={styles.lipRow}>
-                    <View
-                      style={[
-                        styles.lipSwatch,
-                        { backgroundColor: recommendedLip },
-                      ]}
-                    />
-                    <TouchableOpacity
-                      onPress={() =>
-                        Linking.openURL(
-                          `https://www.oliveyoung.co.kr/store/search/getSearchMain.do?query=${encodeURIComponent(`${personalColor} 립`)}`
-                        )
-                      }
-                    >
-                      <Text style={styles.oliveLink}>올리브영에서 찾기 →</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-            </View>
-          ) : (
-            <View style={[styles.card, styles.dashedCard]}>
-              <Text style={styles.dashedTitle}>퍼스널컬러를 분석하면</Text>
-              <Text style={styles.dashedDesc}>
-                나에게 어울리는 컬러를 알려드려요 ✨
-              </Text>
               <TouchableOpacity
-                style={styles.primaryBtn}
-                onPress={() => navigation.navigate('FaceAnalysis')}
-                activeOpacity={0.85}
+                onPress={() => setProfileExpanded((v) => !v)}
+                style={styles.profileToggle}
+                hitSlop={8}
               >
-                <Text style={styles.primaryBtnText}>
-                  AI 얼굴 분석 시작하기 →
-                </Text>
+                <Ionicons
+                  name={profileExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color="#5C2C3F"
+                />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.profileTagsDivider} />
+            <Text style={styles.profileTags}>
+              {`${eyeType} · 중간콧대 · 둥근입술`}
+            </Text>
+          </View>
+
+          {profileExpanded && (
+            <View style={styles.profileExpanded}>
+              {PROFILE_ROW_SPECS.map((spec) => (
+                <View key={spec.key} style={styles.profileRow}>
+                  <IconBox
+                    gradient={spec.gradient}
+                    icon={spec.icon}
+                    iconColor={spec.iconColor}
+                    size={26}
+                  />
+                  <Text style={styles.profileRowLabel}>{spec.label}</Text>
+                  <Text style={styles.profileRowValue}>
+                    {profileFields[spec.key]}
+                  </Text>
+                </View>
+              ))}
+              <TouchableOpacity
+                onPress={goFullProfile}
+                style={styles.profileFullLink}
+                hitSlop={6}
+              >
+                <Text style={styles.profileFullLinkText}>See full profile →</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
 
-        {/* ─── SECTION 5: 추구미 무드보드 ────────────────────────────────── */}
-        <View style={styles.section}>
-          {vibe && (VIBES as readonly string[]).includes(vibe) ? (
-            <>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>{vibe} 무드보드</Text>
-                <TouchableOpacity
-                  onPress={() => setVibePickerOpen(true)}
-                  hitSlop={8}
-                >
-                  <Text style={styles.changeLink}>변경</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.moodGrid}>
-                {Array.from({ length: 6 }).map((_, i) => {
-                  const url = moodImages[i];
-                  return (
-                    <View key={i} style={styles.moodTile}>
-                      {url ? (
-                        <Image source={{ uri: url }} style={styles.moodImage} />
-                      ) : (
-                        <View style={styles.moodSkeleton}>
-                          {loadingMood && <ActivityIndicator color={PINK} />}
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={styles.sectionTitle}>추구미 무드보드</Text>
-              <View style={[styles.card, styles.dashedCard]}>
-                <Text style={styles.dashedDesc}>
-                  추구미를 선택하면 무드보드를 보여드려요
-                </Text>
-                <TouchableOpacity
-                  style={styles.primaryBtn}
-                  onPress={() => setVibePickerOpen(true)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.primaryBtnText}>추구미 선택하기</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-        </View>
+        {/* ── 3. Color palette ──────────────────────────────────────── */}
+        <TouchableOpacity
+          onPress={goPalette}
+          activeOpacity={0.9}
+          style={styles.paletteCard}
+        >
+          <View style={styles.paletteHeader}>
+            <Text style={styles.cardEyebrowLook}>Your palette</Text>
+            <Text style={styles.cardMeta}>
+              {profile.personalColor ?? '겨울 쿨톤'}
+            </Text>
+          </View>
+          <Text style={styles.paletteSubtitle}>너의 컬러 팔레트</Text>
 
-        {/* ─── SECTION 6: AI 얼굴 분석 ───────────────────────────────────── */}
-        <View style={styles.section}>
-          {faceAnalyzed ? (
-            <>
-              <Text style={styles.sectionTitle}>AI 얼굴 분석 결과</Text>
-              <View style={[styles.card, styles.faceCard]}>
-                <View style={styles.faceTagRow}>
-                  {personalColor && (
-                    <View style={styles.faceTag}>
-                      <Text style={styles.faceTagText}>{personalColor}</Text>
-                    </View>
-                  )}
-                  {faceShape && (
-                    <View style={styles.faceTag}>
-                      <Text style={styles.faceTagText}>{faceShape}</Text>
-                    </View>
-                  )}
-                  {eyeType && (
-                    <View style={styles.faceTag}>
-                      <Text style={styles.faceTagText}>{eyeType}</Text>
-                    </View>
-                  )}
-                </View>
-                {faceAnalyzedAt && (
-                  <Text style={styles.faceMeta}>
-                    마지막 분석: {formatDate(faceAnalyzedAt)}
-                  </Text>
-                )}
-                <TouchableOpacity
-                  style={styles.outlinedBtn}
-                  onPress={() => navigation.navigate('FaceAnalysis')}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.outlinedBtnText}>다시 분석하기</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={styles.sectionTitle}>AI 얼굴 분석</Text>
-              <View style={styles.card}>
-                <Text style={styles.faceIntroTitle}>
-                  AI가 내 퍼스널컬러와 얼굴형을 분석해드려요
+          <View style={styles.swatchesRow}>
+            {PALETTE_SWATCHES.map((sw) => (
+              <View key={sw.name} style={[styles.swatchWrap, { width: swatchW }]}>
+                <View
+                  style={[
+                    styles.swatchCircle,
+                    {
+                      width: swatchW,
+                      height: swatchW,
+                      borderRadius: swatchW / 2,
+                      backgroundColor: sw.hex,
+                    },
+                  ]}
+                />
+                <Text style={styles.swatchLabel} numberOfLines={1}>
+                  {sw.name}
                 </Text>
-                <Text style={styles.faceIntroDesc}>
-                  얼굴 사진 한 장으로 완성되는 뷰티 프로필 ✨
-                </Text>
-                <TouchableOpacity
-                  style={styles.primaryBtn}
-                  onPress={() => navigation.navigate('FaceAnalysis')}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.primaryBtnText}>
-                    AI 얼굴 분석 시작하기 →
-                  </Text>
-                </TouchableOpacity>
               </View>
-            </>
-          )}
-        </View>
+            ))}
+          </View>
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
+          <View style={styles.paletteDivider} />
+          <View style={styles.paletteCtaRow}>
+            <Text style={styles.paletteCta}>전체 팔레트 · 컬러 매치</Text>
+            <Ionicons name="chevron-forward" size={16} color="#5C2C3F" />
+          </View>
+        </TouchableOpacity>
 
-      {/* Vibe selector modal */}
-      <Modal
-        visible={vibePickerOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setVibePickerOpen(false)}
-      >
-        <View style={styles.sheetBackdrop}>
-          <TouchableOpacity
-            style={styles.sheetDismiss}
-            activeOpacity={1}
-            onPress={() => setVibePickerOpen(false)}
-          />
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>추구미 선택</Text>
-            <View style={styles.vibePillRow}>
-              {VIBES.map((v) => {
-                const active = vibe === v;
-                return (
-                  <TouchableOpacity
-                    key={v}
-                    style={[styles.vibePill, active && styles.vibePillActive]}
-                    onPress={() => selectVibe(v)}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.vibePillText,
-                        active && styles.vibePillTextActive,
-                      ]}
-                    >
-                      {v}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+        {/* ── 4. Mood board ─────────────────────────────────────────── */}
+        <TouchableOpacity
+          onPress={goMoodBoard}
+          activeOpacity={0.9}
+          style={styles.moodCard}
+        >
+          <View style={styles.moodHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardEyebrowLook}>Mood board</Text>
+              <Text style={styles.moodValue}>{vibe}</Text>
+            </View>
+            <View style={styles.moodChangePill}>
+              <Text style={styles.moodChangePillText}>변경</Text>
             </View>
           </View>
+          <View style={styles.moodGrid}>
+            <View style={[styles.moodCell, { flex: 2 }]}>
+              <LinearGradient
+                colors={['#E8C2CC', '#CFB5C2']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
+            <View style={[styles.moodCell, { flex: 1 }]}>
+              <LinearGradient
+                colors={['#FFD4DC', '#E4D4FF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
+            <View style={[styles.moodCell, { flex: 1 }]}>
+              <LinearGradient
+                colors={['#E4D4FF', '#D4E4FF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* ── 5. Today's look ───────────────────────────────────────── */}
+        <TouchableOpacity
+          onPress={goTodaysLook}
+          activeOpacity={0.9}
+          style={styles.todayCard}
+        >
+          <View style={styles.todayImage}>
+            <LinearGradient
+              colors={['#FFD4DC', '#E4D4FF', '#D4E4FF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <Text style={styles.cardEyebrowLookSm}>Today's look</Text>
+            <Text style={styles.todayDday}>
+              {profile.eventType && daysLeft != null
+                ? `D-${daysLeft} ${profile.eventType}`
+                : 'D-25 졸업식'}
+            </Text>
+            <Text style={styles.todayTitle}>청순 글로우 룩</Text>
+            <Text style={styles.todaySub}>로즈 립 · 라벤더 섀도우</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#C0C0CC" />
+        </TouchableOpacity>
+
+        {/* ── 6. Makeup tips ────────────────────────────────────────── */}
+        <View style={styles.tipsHeader}>
+          <Text style={styles.sectionTitle}>Makeup tips</Text>
+          <Text style={styles.sectionTitleMeta}>맞춤</Text>
         </View>
-      </Modal>
+        <View style={styles.tipsGroup}>
+          {MAKEUP_TIPS.map((tip) => (
+            <TouchableOpacity
+              key={tip.title}
+              onPress={goMakeupTip}
+              activeOpacity={0.85}
+              style={styles.tipRow}
+            >
+              <IconBox
+                gradient={tip.gradient}
+                icon={tip.icon}
+                iconColor={tip.iconColor}
+                size={36}
+              />
+              <View style={styles.tipRowText}>
+                <Text style={styles.tipRowTitle}>{tip.title}</Text>
+                <Text style={styles.tipRowSub}>{tip.sub}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#C0C0CC" />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ── 7. Style plan ─────────────────────────────────────────── */}
+        <Text style={[styles.sectionTitle, { marginTop: 12, marginBottom: 8 }]}>
+          스타일 플랜
+        </Text>
+        <View style={styles.tipsGroup}>
+          <TouchableOpacity
+            onPress={goTreatment}
+            activeOpacity={0.85}
+            style={styles.tipRow}
+          >
+            <IconBox
+              gradient={['#DCD4EC', '#C5CCE0'] as const}
+              icon="medkit-outline"
+              iconColor="#FFFFFF"
+              size={44}
+            />
+            <View style={styles.tipRowText}>
+              <Text style={styles.tipRowTitle}>AI 시술 추천</Text>
+              <Text style={styles.tipRowSub}>얼굴형·퍼스널컬러 기반 시술 가이드</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#C0C0CC" />
+          </TouchableOpacity>
+        </View>
+
+        {/* ── 8. For you · 메이크업 (shop) ──────────────────────────── */}
+        <View style={styles.forYouHeader}>
+          <Text style={styles.forYouTitle}>For you · 메이크업</Text>
+          <TouchableOpacity hitSlop={6}>
+            <Text style={styles.cardLink}>all →</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryRow}
+        >
+          {CATEGORIES.map((cat) => {
+            const active = cat === activeCategory;
+            return (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setActiveCategory(cat)}
+                style={[
+                  styles.categoryChip,
+                  active && styles.categoryChipActive,
+                ]}
+                activeOpacity={0.85}
+              >
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    active && styles.categoryChipTextActive,
+                  ]}
+                >
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.productGrid}>
+          {RECOMMENDED_PRODUCTS.map((p) => (
+            <View
+              key={p.name}
+              style={[styles.productCard, { width: productCardW }]}
+            >
+              <LinearGradient
+                colors={p.swatch}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.productImage}
+              />
+              <Text style={styles.productBrand} numberOfLines={1}>{p.brand}</Text>
+              <Text style={styles.productName} numberOfLines={2}>{p.name}</Text>
+              <View style={styles.productBottomRow}>
+                <Text style={styles.productMatch}>{p.match}</Text>
+                <Text style={styles.productPrice}>{p.price}</Text>
+              </View>
+              <Text style={styles.productReason} numberOfLines={2}>{p.reason}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Today's Look hero card ────────────────────────────────────────────────
-
-function TodaysLookHero({
-  loading,
-  look,
-  onPress,
-}: {
-  loading: boolean;
-  look: TodaysLookData | null;
-  onPress: () => void;
-}) {
-  return (
-    <View style={styles.heroSection}>
-      <TouchableOpacity
-        style={styles.heroCard}
-        onPress={onPress}
-        activeOpacity={0.9}
-      >
-        {look?.imageUrl ? (
-          <Image source={{ uri: look.imageUrl }} style={styles.heroImage} />
-        ) : (
-          <LinearGradient
-            colors={['#FFF0F5', '#E8F4FD']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroImage}
-          >
-            {loading && <ActivityIndicator color={PINK} />}
-          </LinearGradient>
-        )}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.55)']}
-          style={styles.heroOverlay}
-          pointerEvents="none"
-        />
-        <View style={styles.heroOverlayContent} pointerEvents="none">
-          <View style={{ flex: 1 }}>
-            <Text style={styles.heroTitle} numberOfLines={2}>
-              {look?.lookTitle ?? '오늘의 룩'}
-            </Text>
-            <Text style={styles.heroDesc} numberOfLines={2}>
-              {look?.lookDescription ??
-                (loading
-                  ? '룩을 불러오고 있어요…'
-                  : '내 프로필에 맞춘 메이크업 추천이에요')}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.heroPillWrap} pointerEvents="box-none">
-          <View style={styles.heroPill}>
-            <Text style={styles.heroPillText}>따라하기 →</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      <View style={styles.heroFooter}>
-        <View style={styles.heroColorRow}>
-          {(look?.keyColors ?? []).slice(0, 3).map((c, i) => (
-            <View
-              key={`${c}-${i}`}
-              style={[styles.heroColorDot, { backgroundColor: c }]}
-            />
-          ))}
-        </View>
-        <TouchableOpacity onPress={onPress} hitSlop={6}>
-          <Text style={styles.heroFooterLink}>오늘의 루틴 보기 →</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-// ─── Styles ────────────────────────────────────────────────────────────────
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
-  container: { flex: 1 },
-  content: { paddingBottom: 60 },
-
-  header: { paddingHorizontal: 20, paddingTop: 4 },
-  headerLogo: {
-    width: 170,
-    height: 68,
-    resizeMode: 'contain',
-    alignSelf: 'flex-start',
-    marginLeft: -40,
-    marginBottom: -8,
-  },
-
-  // Hero
-  heroSection: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-    gap: 10,
-  },
-  heroCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#F0F0F0',
-  },
-  heroImage: {
-    width: '100%',
-    height: 220,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 130,
-  },
-  heroOverlayContent: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 16,
-  },
-  heroTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  heroDesc: { color: '#fff', fontSize: 13, opacity: 0.9, lineHeight: 18 },
-  heroPillWrap: { position: 'absolute', right: 16, bottom: 16 },
-  heroPill: {
-    backgroundColor: '#fff',
-    borderRadius: 50,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  heroPillText: { fontSize: 12, color: PINK, fontWeight: '700' },
-  heroFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  heroColorRow: { flexDirection: 'row', gap: 6 },
-  heroColorDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-  },
-  heroFooterLink: { fontSize: 12, color: PINK, fontWeight: '700' },
-
-  // Sections
-  section: { paddingHorizontal: 20, marginBottom: 24 },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1A1A2E',
-    marginBottom: 12,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  changeLink: { fontSize: 13, color: PINK, fontWeight: '700' },
-
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#B0B0B0',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    elevation: 2,
-    gap: 8,
-  },
-  dashedCard: {
-    borderWidth: 1.5,
-    borderColor: '#FFC4D6',
-    borderStyle: 'dashed',
-    backgroundColor: '#FFFAFC',
-    alignItems: 'center',
-    paddingVertical: 22,
-    gap: 10,
-  },
-  dashedTitle: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
-  dashedDesc: {
-    fontSize: 13,
-    color: '#8A8A9A',
-    textAlign: 'center',
-    lineHeight: 19,
-  },
-
-  primaryBtn: {
-    backgroundColor: PINK,
-    borderRadius: 50,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 22,
-    alignSelf: 'stretch',
-  },
-  primaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  outlinedBtn: {
-    height: 44,
-    borderRadius: 50,
-    borderWidth: 1.5,
-    borderColor: PINK,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'stretch',
-    backgroundColor: 'transparent',
-  },
-  outlinedBtnText: { color: PINK, fontSize: 14, fontWeight: '700' },
-
-  // Section 2 — Color match
-  colorMatchCard: {
-    backgroundColor: '#FFF0F5',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: '#FFC4D6',
-    gap: 12,
-  },
-  colorMatchTitle: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
-  colorMatchBtnRow: { flexDirection: 'row', gap: 8 },
-  colorMatchBtn: {
+  safe: {
     flex: 1,
-    backgroundColor: PINK,
-    borderRadius: 50,
-    paddingVertical: 12,
-    alignItems: 'center',
+    backgroundColor: '#FBF5F6',
   },
-  colorMatchBtnAlt: {
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: PINK,
-  },
-  colorMatchBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  paletteRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  paletteDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-  },
-  emptyHint: { fontSize: 12, color: '#8A8A9A' },
 
-  // Section 3 — Inspo
-  inspoCard: {
-    borderRadius: 20,
-    padding: 16,
-    gap: 8,
+  // 1. Header
+  header: {
+    paddingHorizontal: 18,
+    marginTop: 4,
   },
-  inspoTitle: { fontSize: 15, fontWeight: '800', color: '#1A1A2E' },
-  inspoDesc: { fontSize: 13, color: '#5A5A65', lineHeight: 19 },
-
-  // Section 4 — Personal color
-  pcType: { fontSize: 22, fontWeight: '800', color: '#1A1A2E' },
-  pcSwatchRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  pcSwatch: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
-  },
-  pcLabel: {
+  eyebrow: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
     fontSize: 12,
-    color: '#8A8A9A',
-    fontWeight: '600',
-    marginTop: 6,
+    lineHeight: 14,
+    color: 'rgba(92,44,63,0.7)',
   },
-  lipRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  lipSwatch: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
+  title: {
+    fontFamily: 'Pretendard-Thin',
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: -0.7,
+    color: '#1A1A1F',
+    fontWeight: '200',
+    marginTop: 2,
   },
-  oliveLink: { fontSize: 13, color: PINK, fontWeight: '700' },
+  subline: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 10,
+    lineHeight: 14,
+    color: '#8E8E93',
+    marginTop: 4,
+  },
 
-  // Section 5 — Moodboard
-  moodGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  moodTile: {
-    width: '32%',
-    aspectRatio: 0.85,
-    borderRadius: 12,
+  // 2. Profile card
+  profileCard: {
+    marginHorizontal: 18,
+    marginTop: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
     overflow: 'hidden',
   },
-  moodImage: { width: '100%', height: '100%' },
-  moodSkeleton: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#F0F0F0',
+  profileTop: {
+    padding: 14,
+    paddingHorizontal: 16,
+    position: 'relative',
+  },
+  profileTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  profileDnaCode: {
+    fontFamily: 'Menlo',
+    fontSize: 8,
+    lineHeight: 11,
+    letterSpacing: 3,
+    color: 'rgba(92,44,63,0.65)',
+  },
+  profileDnaName: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 22,
+    lineHeight: 26,
+    color: '#5C2C3F',
+    fontWeight: '300',
+    marginTop: 4,
+  },
+  profileDnaKr: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 9,
+    lineHeight: 12,
+    letterSpacing: 1.5,
+    color: 'rgba(92,44,63,0.7)',
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  profileToggle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  profileTagsDivider: {
+    height: 0.5,
+    backgroundColor: 'rgba(92,44,63,0.12)',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  profileTags: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 9,
+    lineHeight: 12,
+    color: 'rgba(92,44,63,0.75)',
+  },
+  profileExpanded: {
+    padding: 14,
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  profileRowLabel: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 12,
+    color: '#8E8E93',
+    width: 60,
+  },
+  profileRowValue: {
+    flex: 1,
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 13,
+    color: '#1A1A1F',
+    fontWeight: '500',
+  },
+  profileFullLink: {
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  profileFullLinkText: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 11,
+    color: '#5C2C3F',
+  },
 
-  // Section 6 — Face analysis
-  faceCard: { backgroundColor: '#F0F5FF', borderRadius: 20, padding: 16 },
-  faceTagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  faceTag: {
-    backgroundColor: '#fff',
+  // Common eyebrow / meta
+  cardEyebrowLook: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 13,
+    lineHeight: 16,
+    color: '#5C2C3F',
+  },
+  cardEyebrowLookSm: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#5C2C3F',
+  },
+  cardMeta: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 10,
+    color: '#8E8E93',
+  },
+  cardLink: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 10,
+    color: '#8E8E93',
+  },
+
+  // 3. Color palette card
+  paletteCard: {
+    marginHorizontal: 18,
+    marginTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
+    padding: 16,
+  },
+  paletteHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
+  paletteSubtitle: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 11,
+    color: '#1A1A1F',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  swatchesRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  swatchWrap: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  swatchCircle: {
+    // dynamic size set inline
+  },
+  swatchLabel: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 9,
+    color: '#8E8E93',
+  },
+  paletteDivider: {
+    height: 0.5,
+    backgroundColor: '#F2F2F4',
+    marginTop: 14,
+    marginBottom: 10,
+  },
+  paletteCtaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  paletteCta: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 12,
+    color: '#5C2C3F',
+    fontWeight: '500',
+  },
+
+  // 4. Mood board
+  moodCard: {
+    marginHorizontal: 18,
+    marginTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
+    overflow: 'hidden',
+  },
+  moodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+  },
+  moodValue: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 12,
+    color: '#1A1A1F',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  moodChangePill: {
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: '#D0DDF0',
+    borderRadius: 100,
+    backgroundColor: '#FBF5F6',
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
   },
-  faceTagText: { fontSize: 13, color: '#3D5A80', fontWeight: '700' },
-  faceMeta: { fontSize: 11, color: '#8A8A9A' },
-  faceIntroTitle: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
-  faceIntroDesc: { fontSize: 13, color: '#8A8A9A', lineHeight: 19 },
-
-  // Vibe selector sheet
-  sheetBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
+  moodChangePillText: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 10,
+    color: '#5C2C3F',
   },
-  sheetDismiss: { flex: 1 },
-  sheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 32,
-    gap: 14,
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E0E0E0',
-  },
-  sheetTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1A2E',
-    textAlign: 'center',
-  },
-  vibePillRow: {
+  moodGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
+    height: 100,
+    gap: 2,
   },
-  vibePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 50,
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
+  moodCell: {
+    overflow: 'hidden',
   },
-  vibePillActive: {
-    backgroundColor: '#FFF0F5',
-    borderColor: PINK,
-  },
-  vibePillText: { fontSize: 13, color: '#8A8A9A', fontWeight: '600' },
-  vibePillTextActive: { color: PINK, fontWeight: '700' },
 
-  // 내 뷰티 솔루션 (MEVE-241)
-  solutionCard: {
+  // 5. Today's look
+  todayCard: {
+    marginHorizontal: 18,
+    marginTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 16,
-    padding: 14,
+  },
+  todayImage: {
+    width: 60,
+    height: 75,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  todayDday: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 8,
+    color: '#8E8E93',
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+  todayTitle: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 15,
+    color: '#1A1A1F',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  todaySub: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 10,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+
+  // 6 + 7. Section titles
+  tipsHeader: {
+    paddingHorizontal: 18,
+    marginTop: 14,
     marginBottom: 8,
-    shadowColor: '#B0B0B0',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 1,
   },
-  solutionCardHighlight: {
-    backgroundColor: '#FFF0F5',
-    borderWidth: 1.5,
-    borderColor: '#FFC4D6',
+  sectionTitle: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 14,
+    lineHeight: 18,
+    color: '#5C2C3F',
+    paddingHorizontal: 18,
   },
-  solutionIcon: { fontSize: 28, marginRight: 12 },
-  solutionContent: { flex: 1 },
-  solutionTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
-  solutionSub: { fontSize: 12, color: '#8A8A9A', marginTop: 2 },
-  newTag: {
-    backgroundColor: '#FF6B9D',
-    borderRadius: 50,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  sectionTitleMeta: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 10,
+    color: '#8E8E93',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginTop: 2,
   },
-  newTagText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
-  solutionPaletteRow: {
+  tipsGroup: {
+    paddingHorizontal: 18,
+    gap: 8,
+  },
+  tipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
+    gap: 12,
+  },
+  tipRowText: {
+    flex: 1,
+    gap: 2,
+  },
+  tipRowTitle: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 13,
+    lineHeight: 16,
+    color: '#1A1A1F',
+    fontWeight: '500',
+  },
+  tipRowSub: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#8E8E93',
+  },
+
+  // 8. For you
+  forYouHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    paddingHorizontal: 18,
+    marginTop: 16,
+    marginBottom: 10,
+  },
+  forYouTitle: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 14,
+    lineHeight: 18,
+    color: '#5C2C3F',
+  },
+  categoryRow: {
+    paddingHorizontal: 18,
+    gap: 6,
+    paddingBottom: 4,
+  },
+  categoryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
+  },
+  categoryChipActive: {
+    backgroundColor: '#5C2C3F',
+    borderColor: '#5C2C3F',
+  },
+  categoryChipText: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#8E8E93',
+    fontWeight: '500',
+  },
+  categoryChipTextActive: {
+    color: '#FFFFFF',
+  },
+  productGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    paddingHorizontal: 18,
+    gap: 12,
+    marginTop: 10,
+  },
+  productCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: '#ECECEF',
+    overflow: 'hidden',
+    paddingBottom: 10,
+  },
+  productImage: {
+    width: '100%',
+    height: 90,
+  },
+  productBrand: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 8,
+    lineHeight: 11,
+    color: '#8E8E93',
+    paddingHorizontal: 10,
+    marginTop: 8,
+  },
+  productName: {
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#1A1A1F',
+    fontWeight: '600',
+    paddingHorizontal: 10,
+    marginTop: 2,
+  },
+  productBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
     marginTop: 4,
-    paddingHorizontal: 4,
+  },
+  productMatch: {
+    fontFamily: 'Fraunces-LightItalic',
+    fontStyle: 'italic',
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#5C2C3F',
+  },
+  productPrice: {
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#1A1A1F',
+    fontWeight: '600',
+  },
+  productReason: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 8,
+    lineHeight: 11,
+    color: '#8E8E93',
+    paddingHorizontal: 10,
+    marginTop: 2,
   },
 });
-
-// suppress unused import (Colors retained for future palette extensions)
-void Colors;

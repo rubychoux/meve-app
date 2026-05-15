@@ -235,7 +235,7 @@ export function LookPollCreateScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -243,10 +243,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
 
   content: { padding: 20, paddingBottom: 60, gap: 10 },
-  hero: { fontSize: 20, fontWeight: '800', color: '#1A1A2E' },
+  hero: { fontSize: 20, fontWeight: '800', color: '#1A1A1F' },
   heroSub: { fontSize: 12, color: '#8A8A9A', marginBottom: 6 },
 
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   },
   addSlotText: { fontSize: 11, color: PINK, fontWeight: '600' },
 
-  label: { fontSize: 13, fontWeight: '600', color: '#1A1A2E', marginTop: 12 },
+  label: { fontSize: 13, fontWeight: '600', color: '#1A1A1F', marginTop: 12 },
   labelSub: { fontSize: 11, color: '#8A8A9A', marginTop: 2 },
 
   input: {
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 14,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     minHeight: 60,
     textAlignVertical: 'top',
     marginTop: 6,
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     borderColor: '#F0E6EC',
   },
   segmentActive: { backgroundColor: PINK, borderColor: PINK },
-  segmentText: { fontSize: 13, color: '#1A1A2E' },
+  segmentText: { fontSize: 13, color: '#1A1A1F' },
   segmentTextActive: { color: '#fff', fontWeight: '700' },
 
   submitBtn: {

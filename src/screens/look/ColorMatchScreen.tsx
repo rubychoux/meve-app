@@ -47,7 +47,7 @@ const SCORE_STYLES: Record<
   { color: string; bg: string; emoji: string; label: string }
 > = {
   강추: { color: '#7CB798', bg: '#EAF7EE', emoji: '💚', label: '강추예요!' },
-  추천: { color: '#5BA3D9', bg: '#E8F4FD', emoji: '💙', label: '추천해요!' },
+  추천: { color: '#2D3A6B', bg: '#E8F4FD', emoji: '💙', label: '추천해요!' },
   보통: { color: '#FFB347', bg: '#FFF4E6', emoji: '🧡', label: '보통이에요' },
   비추: { color: '#FF6B6B', bg: '#FFECEC', emoji: '💔', label: '비추예요' },
 };
@@ -886,7 +886,7 @@ function AnalysisCard({
 // ─── Styles ───────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -894,7 +894,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
   content: { padding: 20, paddingBottom: 60, gap: 14 },
   subtitle: { fontSize: 13, color: '#8A8A9A', lineHeight: 19 },
 
@@ -954,7 +954,7 @@ const styles = StyleSheet.create({
 
   sectionLabel: {
     fontSize: 13,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     fontWeight: '700',
     marginTop: 4,
   },
@@ -1030,7 +1030,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.06)',
   },
-  swatchName: { fontSize: 11, color: '#1A1A2E', textAlign: 'center' },
+  swatchName: { fontSize: 11, color: '#1A1A1F', textAlign: 'center' },
 
   cardOuter: {
     backgroundColor: '#fff',
@@ -1045,7 +1045,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  cardTitle: { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
+  cardTitle: { fontSize: 13, fontWeight: '700', color: '#1A1A1F' },
   cardStatus: { fontSize: 13, fontWeight: '700' },
   cardReason: { fontSize: 12, color: '#666', lineHeight: 18 },
   scoreBar: {
@@ -1070,7 +1070,7 @@ const styles = StyleSheet.create({
     borderColor: '#FFC4D6',
   },
   recTitle: { fontSize: 13, fontWeight: '700', color: PINK },
-  recBody: { fontSize: 13, color: '#1A1A2E', lineHeight: 20 },
+  recBody: { fontSize: 13, color: '#1A1A1F', lineHeight: 20 },
   recAlt: { fontSize: 12, color: '#666', fontStyle: 'italic', marginTop: 2 },
 
   // Mine mode
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#FFF0F5',
   },
-  productName: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
+  productName: { fontSize: 14, fontWeight: '700', color: '#1A1A1F' },
   productBrand: { fontSize: 12, color: '#8A8A9A' },
   productSwatches: { flexDirection: 'row', gap: 4, marginTop: 2 },
   productSwatch: {
@@ -1139,7 +1139,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  emptyTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  emptyTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A1F' },
   emptyDesc: {
     fontSize: 13,
     color: '#8A8A9A',
@@ -1174,7 +1174,7 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 4,
   },
   sheetLabel: {
@@ -1189,7 +1189,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
   },
   sheetTypeRow: {
     flexDirection: 'row',

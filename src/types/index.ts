@@ -156,10 +156,10 @@ export type EventType = 'wedding' | 'date' | 'graduation' | 'travel' | 'other';
 // (Home/Scan) plus stack screens (FaceScanner, Skincare, Look).
 export type MainTabParamList = {
   Home: undefined;
+  Skincare: undefined;
   Scan: undefined;
-  Meve: { mode?: 'skin' | 'look' } | undefined;
+  Look: undefined;
   Community: undefined;
-  MyPage: undefined;
 };
 
 export type MainStackParamList = {
@@ -191,15 +191,29 @@ export type MainStackParamList = {
   CreatePost: undefined;
   PostDetail: { postId: string };
   // MEVE-253 — chat can be opened in skin or look coach mode.
-  RoutineCoachChat: { mode?: 'skin' | 'look' } | undefined;
+  // meve AI coach — unified chat (v1.5). `context` drives preset questions
+  // and gets injected into the GPT system prompt.
+  RoutineCoachChat:
+    | {
+        context?: 'skin' | 'look' | 'home' | 'product' | 'scan_result';
+        contextData?: {
+          productId?: string;
+          scanResultId?: string;
+          currentScreen?: string;
+        };
+        // Backward-compat: callers passing `mode` get mapped to context.
+        mode?: 'skin' | 'look';
+      }
+    | undefined;
   Notifications: undefined;
   // MEVE-249 — flattened from AIScanNavigator so ScanScreen / HomeScreen can
   // push these directly now that the Skin/Look tabs are gone.
   FaceScanner: undefined;
   IngredientScanner: undefined;
   IngredientResult: { imageBase64?: string; result?: any };
-  Skincare: undefined;
-  Look: undefined;
+  // v3 — MyPage + Meve in MainStack (reachable from the shared TopBar).
+  MyPage: undefined;
+  Meve: { mode?: 'skin' | 'look' } | undefined;
   // MEVE-250 — trouble check-in flow.
   TroubleCheckin: undefined;
   // MEVE-251 — AI cause-analysis report.
@@ -261,6 +275,8 @@ export interface Post {
   personal_color: string | null;
   vibe: string | null;
   face_shape: string | null;
+  // 8 beauty DNA types (GCS, GCB, GWS, GWB, MCS, MCB, MWS, MWB). Used by 내 핏 filter.
+  beauty_type: string | null;
   dday_count: number | null;
   product_tags: ProductTag[];
   likes_count: number;

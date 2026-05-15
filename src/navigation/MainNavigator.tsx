@@ -1,50 +1,34 @@
-// MEVE-258 — restored uploaded PNG tab icons. Tab bar is otherwise still
-// flat (white, hairline border, no blur/gradient backdrop).
+// MEVE — v1.5 tab bar v3: 홈 / SKIN / 스캔 / LOOK / eve.
+// MyPage + Meve relocated to MainStack (accessible via Home top icons).
 import React from 'react';
-import { Image, StyleSheet, ImageSourcePropType } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import { MainTabParamList } from '../types';
 import { HomeScreen } from '../screens/home/HomeScreen';
+import { SkincareScreen } from '../screens/skincare/SkincareScreen';
 import { ScanScreen } from '../screens/scan/ScanScreen';
-import { MeveScreen } from '../screens/meve/MeveScreen';
+import { LookScreen } from '../screens/look/LookScreen';
 import { CommunityStackNavigator } from './CommunityStackNavigator';
-import { MyPageScreen } from '../screens/mypage/MyPageScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-// Scan reuses tab-skin.png; Meve reuses tab-look.png until dedicated icons land.
-const TAB_ICONS: Record<
+const ICONS: Record<
   string,
-  { active: ImageSourcePropType; inactive: ImageSourcePropType }
+  { focused: keyof typeof Ionicons.glyphMap; unfocused: keyof typeof Ionicons.glyphMap }
 > = {
-  Home: {
-    active: require('../../assets/icons/tab-home.png'),
-    inactive: require('../../assets/icons/tab-home.png'),
-  },
-  Scan: {
-    active: require('../../assets/icons/tab-skin.png'),
-    inactive: require('../../assets/icons/tab-skin.png'),
-  },
-  Meve: {
-    active: require('../../assets/icons/tab-look.png'),
-    inactive: require('../../assets/icons/tab-look.png'),
-  },
-  Community: {
-    active: require('../../assets/icons/tab-eve.png'),
-    inactive: require('../../assets/icons/tab-eve.png'),
-  },
-  MyPage: {
-    active: require('../../assets/icons/tab-mypage.png'),
-    inactive: require('../../assets/icons/tab-mypage.png'),
-  },
+  Home:      { focused: 'home',           unfocused: 'home-outline' },
+  Skincare:  { focused: 'water',          unfocused: 'water-outline' },
+  Scan:      { focused: 'scan',           unfocused: 'scan-outline' },
+  Look:      { focused: 'color-palette',  unfocused: 'color-palette-outline' },
+  Community: { focused: 'heart',          unfocused: 'heart-outline' },
 };
 
-const labels: Record<string, string> = {
+const LABELS: Record<string, string> = {
   Home: '홈',
-  Scan: '나',
-  Meve: 'meve',
+  Skincare: 'SKIN',
+  Scan: '스캔',
+  Look: 'LOOK',
   Community: 'eve',
-  MyPage: '마이페이지',
 };
 
 export function MainNavigator() {
@@ -52,48 +36,44 @@ export function MainNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ focused }) => {
-          const set = TAB_ICONS[route.name];
+        tabBarIcon: ({ focused, color }) => {
+          const set = ICONS[route.name];
           if (!set) return null;
+          // Center "스캔" tab gets a slightly larger icon (26 vs 22).
+          const size = route.name === 'Scan' ? 26 : 22;
           return (
-            <Image
-              source={focused ? set.active : set.inactive}
-              style={[tabStyles.icon, { opacity: focused ? 1 : 0.6 }]}
+            <Ionicons
+              name={focused ? set.focused : set.unfocused}
+              size={size}
+              color={color}
             />
           );
         },
-        tabBarLabel: labels[route.name],
-        tabBarActiveTintColor: '#5BA3D9',
-        tabBarInactiveTintColor: '#C0C0CC',
+        tabBarLabel: LABELS[route.name],
+        tabBarActiveTintColor: '#2D3A6B',
+        tabBarInactiveTintColor: '#8E8E93',
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: '#F0F0F5',
+          backgroundColor: '#FBF5F6',
+          borderTopWidth: 0.5,
+          borderTopColor: 'rgba(26,26,31,0.08)',
           height: 84,
           paddingBottom: 24,
           paddingTop: 8,
           elevation: 0,
         },
         tabBarLabelStyle: {
+          fontFamily: 'Pretendard-Medium',
           fontSize: 11,
-          fontWeight: '600',
-          marginTop: -2,
+          fontWeight: '500',
+          marginTop: 2,
         },
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Skincare" component={SkincareScreen} />
       <Tab.Screen name="Scan" component={ScanScreen} />
-      <Tab.Screen name="Meve" component={MeveScreen} />
+      <Tab.Screen name="Look" component={LookScreen} />
       <Tab.Screen name="Community" component={CommunityStackNavigator} />
-      <Tab.Screen name="MyPage" component={MyPageScreen} />
     </Tab.Navigator>
   );
 }
-
-const tabStyles = StyleSheet.create({
-  icon: {
-    width: 96,
-    height: 96,
-    resizeMode: 'contain',
-  },
-});

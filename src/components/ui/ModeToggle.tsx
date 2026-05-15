@@ -10,21 +10,21 @@ export function ModeToggle() {
   return (
     <View style={styles.container}>
       <TouchableOpacity
-        style={[styles.tab, mode === 'skin' && styles.tabActiveSkin]}
+        style={[styles.tab, mode === 'skin' && styles.tabActive]}
         onPress={() => setMode('skin')}
         activeOpacity={0.85}
       >
-        <Text style={[styles.tabText, mode === 'skin' && styles.tabTextActiveSkin]}>
-          💙 SKIN
+        <Text style={[styles.tabText, mode === 'skin' && styles.tabTextActive]}>
+          SKIN
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.tab, mode === 'look' && styles.tabActiveLook]}
+        style={[styles.tab, mode === 'look' && styles.tabActive]}
         onPress={() => setMode('look')}
         activeOpacity={0.85}
       >
-        <Text style={[styles.tabText, mode === 'look' && styles.tabTextActiveLook]}>
-          💕 LOOK
+        <Text style={[styles.tabText, mode === 'look' && styles.tabTextActive]}>
+          LOOK
         </Text>
       </TouchableOpacity>
     </View>
@@ -34,9 +34,9 @@ export function ModeToggle() {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#F0F0F5',
-    borderRadius: 50,
-    padding: 3,
+    backgroundColor: 'rgba(45,58,107,0.06)',
+    borderRadius: 100,
+    padding: 4,
     marginHorizontal: 20,
     marginBottom: 12,
   },
@@ -44,33 +44,24 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 50,
+    borderRadius: 100,
   },
-  tabActiveSkin: {
+  tabActive: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#5BA3D9',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-  },
-  tabActiveLook: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#FF6B9D',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
+    shadowColor: '#2D3A6B',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 4,
+    elevation: 1,
   },
   tabText: {
+    fontFamily: 'Pretendard-SemiBold',
     fontSize: 14,
-    fontWeight: '500',
-    color: '#8A8A9A',
+    lineHeight: 18,
+    color: '#8E8E93',
+    fontWeight: '600',
   },
-  tabTextActiveSkin: {
-    color: '#5BA3D9',
-    fontWeight: '700',
-  },
-  tabTextActiveLook: {
-    color: '#FF6B9D',
-    fontWeight: '700',
+  tabTextActive: {
+    color: '#2D3A6B',
   },
 });

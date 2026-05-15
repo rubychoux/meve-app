@@ -1,31 +1,33 @@
 export const Colors = {
-  // Backgrounds
-  bg: '#FDF6F9',              // 아주 연한 핑크 화이트 — 메인 배경
-  surface: '#FFFFFF',          // 카드, 입력 필드
+  // Backgrounds — v1.5
+  bg: '#FBF5F6',              // v1.5 blushSnow — 메인 배경
+  surface: '#FFFFFF',          // 카드, 입력 필드 (legacy alias)
   surfaceElevated: '#FCF0F5',  // 연한 핑크 — 섹션 구분
+  cardBg: 'rgba(255,255,255,0.7)',  // v1.5 일상 화면 카드 배경 (반투명)
 
-  // Accent — Baby Pink
-  accent: '#F2A7C3',           // 메인 포인트 (버튼, CTA)
+  // Brand primary — v1.5 mysticNavy
+  primary: '#2D3A6B',          // 메인 브랜드 컬러
+  accent: '#F2A7C3',           // 메인 포인트 (버튼, CTA) — legacy
   accentMuted: '#F9D0E3',      // 연한 핑크 — 선택 카드 배경
   accentLight: '#FDE8F1',      // 아주 연한 핑크
 
-  // Secondary — Light Blue
-  secondary: '#A8D5E8',        // 라이트 블루 포인트
-  secondaryMuted: '#D6EDF7',   // 연한 블루
-  secondaryLight: '#EBF6FB',   // 아주 연한 블루
+  // Secondary — Light Blue (legacy)
+  secondary: '#A8D5E8',
+  secondaryMuted: '#D6EDF7',
+  secondaryLight: '#EBF6FB',
 
   // Status
-  success: '#85C1AE',          // 세이지 그린 (safe)
-  warning: '#F5C97A',          // 연한 옐로우 (caution)
-  danger: '#F08080',           // 연한 레드 (avoid/error)
+  success: '#85C1AE',
+  warning: '#F5C97A',
+  danger: '#F08080',
 
-  // Text
-  textPrimary: '#2D2D2D',      // 거의 블랙
-  textSecondary: '#9A8F97',    // 뮤트 핑크 그레이
-  textDisabled: '#C8BFC6',     // 비활성
+  // Text — v1.5
+  textPrimary: '#1A1A1F',      // v1.5 ink
+  textSecondary: '#8E8E93',    // v1.5 coolGray
+  textDisabled: '#C8BFC6',
 
-  // UI
-  border: '#F0E6EC',           // 연한 핑크 보더
+  // UI — v1.5
+  border: 'rgba(26,26,31,0.08)',  // v1.5 hairline (ink @ 8% opacity)
   borderMuted: '#F7F0F4',
   overlay: 'rgba(45,45,45,0.4)',
 

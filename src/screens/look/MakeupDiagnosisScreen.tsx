@@ -650,7 +650,7 @@ high = 꼭 바꿔야 할 것, medium = 바꾸면 좋은 것, low = 선택사항.
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   centerContent: { alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row',
@@ -660,14 +660,14 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 16,
   },
-  backBtn: { fontSize: 22, color: '#1A1A2E', width: 32 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A2E' },
+  backBtn: { fontSize: 22, color: '#1A1A1F', width: 32 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1F' },
   retryBtn: { fontSize: 14, color: '#FF6B9D', fontWeight: '600' },
   content: { padding: 20, paddingBottom: 60 },
   selectTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 8,
   },
   selectSub: {
@@ -698,13 +698,13 @@ const styles = StyleSheet.create({
   typeTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 2,
   },
   typeSub: { fontSize: 12, color: '#8A8A9A', marginBottom: 2 },
   typeNote: { fontSize: 11, color: '#C0C0CC' },
   inputTypeBadge: {
-    backgroundColor: '#F0F0F5',
+    backgroundColor: 'rgba(26,26,31,0.06)',
     borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -734,7 +734,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     fontSize: 14,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 20,
   },
   imagePreviewWrapper: { alignItems: 'center', marginBottom: 20 },
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#E5E5EA',
   },
-  imagePickBtnText: { fontSize: 14, color: '#1A1A2E', fontWeight: '600' },
+  imagePickBtnText: { fontSize: 14, color: '#1A1A1F', fontWeight: '600' },
   tipBox: {
     backgroundColor: '#FFF0F5',
     borderRadius: 14,
@@ -794,7 +794,7 @@ const styles = StyleSheet.create({
   analyzingTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginTop: 20,
   },
   analyzingDesc: { fontSize: 14, color: '#8A8A9A', marginTop: 8 },
@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 12,
   },
   issueCard: { borderRadius: 14, padding: 14, marginBottom: 10 },
@@ -840,7 +840,7 @@ const styles = StyleSheet.create({
   },
   issueIcon: { fontSize: 20 },
   issueLevel: { fontSize: 11, fontWeight: '700' },
-  issueArea: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
+  issueArea: { fontSize: 14, fontWeight: '600', color: '#1A1A1F' },
   issueProblem: {
     fontSize: 14,
     color: '#5A5A7A',
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
     color: '#8A8A9A',
     marginBottom: 4,
   },
-  fixText: { fontSize: 13, color: '#1A1A2E' },
+  fixText: { fontSize: 13, color: '#1A1A1F' },
   recoCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -879,7 +879,7 @@ const styles = StyleSheet.create({
     width: 20,
     textAlign: 'center',
   },
-  recoText: { flex: 1, fontSize: 14, color: '#1A1A2E', lineHeight: 20 },
+  recoText: { flex: 1, fontSize: 14, color: '#1A1A1F', lineHeight: 20 },
   coachCta: {
     backgroundColor: '#FFF0F5',
     borderRadius: 14,

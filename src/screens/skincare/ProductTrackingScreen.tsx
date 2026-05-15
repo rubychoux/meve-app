@@ -568,7 +568,7 @@ JSON으로만 답하세요. 다른 텍스트 없이.
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFBFC' },
+  container: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -577,14 +577,14 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
   },
-  backBtn: { fontSize: 22, color: '#1A1A2E', width: 32 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A2E' },
-  addBtn: { fontSize: 15, color: '#5BA3D9', fontWeight: '600' },
+  backBtn: { fontSize: 22, color: '#1A1A1F', width: 32 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1F' },
+  addBtn: { fontSize: 15, color: '#2D3A6B', fontWeight: '600' },
   content: { flex: 1 },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 8,
   },
   sectionSub: { fontSize: 14, color: '#8A8A9A', marginBottom: 20 },
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
     padding: 16,
     fontSize: 16,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 20,
   },
   infoCard: {
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
   infoCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#5BA3D9',
+    color: '#2D3A6B',
     marginBottom: 10,
   },
   infoCardItem: {
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
   productNameLarge: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 8,
   },
   reactionOptions: { gap: 10 },
@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
   },
-  reactionLabel: { fontSize: 16, fontWeight: '600', color: '#1A1A2E' },
+  reactionLabel: { fontSize: 16, fontWeight: '600', color: '#1A1A1F' },
   reviewInput: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
     padding: 16,
     fontSize: 15,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     lineHeight: 24,
     minHeight: 120,
   },
@@ -646,11 +646,11 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F5',
-    backgroundColor: '#FAFBFC',
+    borderTopColor: 'rgba(26,26,31,0.06)',
+    backgroundColor: '#FBF5F6',
   },
   ctaBtn: {
-    backgroundColor: '#5BA3D9',
+    backgroundColor: '#2D3A6B',
     borderRadius: 50,
     padding: 16,
     alignItems: 'center',
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
   analysisResultTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 12,
   },
   analysisResultText: {
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 8,
   },
   emptyDesc: { fontSize: 14, color: '#8A8A9A', textAlign: 'center' },
@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
   },
   historyIcon: { fontSize: 24 },
   historyMeta: { flex: 1 },
-  historyProductName: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  historyProductName: { fontSize: 15, fontWeight: '700', color: '#1A1A1F' },
   historyStatus: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   historyAnalysis: {
     fontSize: 13,
@@ -740,5 +740,5 @@ const styles = StyleSheet.create({
     padding: 10,
     alignItems: 'center',
   },
-  checkinNowText: { fontSize: 13, fontWeight: '600', color: '#5BA3D9' },
+  checkinNowText: { fontSize: 13, fontWeight: '600', color: '#2D3A6B' },
 });

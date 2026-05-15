@@ -19,10 +19,8 @@ import { useMode } from '../../stores/modeStore';
 import { supabase } from '../../services/supabase';
 import { MainStackParamList, MainTabParamList } from '../../types';
 
-type Nav = CompositeNavigationProp<
-  BottomTabNavigationProp<MainTabParamList, 'Meve'>,
-  NativeStackNavigationProp<MainStackParamList>
->;
+// v3 — MeveScreen lives in MainStack (reachable from TopBar sparkles icon).
+type Nav = NativeStackNavigationProp<MainStackParamList, 'Meve'>;
 
 interface TipMessage {
   id: string;
@@ -85,7 +83,7 @@ export function MeveScreen() {
             styles.newChatBtn,
             mode === 'look' ? styles.newChatBtnLook : styles.newChatBtnSkin,
           ]}
-          onPress={() => navigation.navigate('RoutineCoachChat', { mode })}
+          onPress={() => navigation.navigate('RoutineCoachChat', { context: mode })}
           activeOpacity={0.85}
         >
           <Text style={styles.newChatBtnText}>
@@ -174,7 +172,7 @@ export function MeveScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -183,13 +181,13 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1A2E' },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1A1F' },
   newChatBtn: {
     borderRadius: 50,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
-  newChatBtnSkin: { backgroundColor: '#5BA3D9' },
+  newChatBtnSkin: { backgroundColor: '#2D3A6B' },
   newChatBtnLook: { backgroundColor: '#FF6B9D' },
   newChatBtnText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
   channelLabel: {
@@ -202,7 +200,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  channelLabelText: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
+  channelLabelText: { fontSize: 14, fontWeight: '700', color: '#1A1A1F' },
   channelLabelSub: { fontSize: 11, color: '#8A8A9A' },
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyState: {
@@ -215,7 +213,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     marginBottom: 8,
   },
   emptyDesc: {
@@ -247,7 +245,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tipAvatarSkin: { backgroundColor: '#5BA3D9' },
+  tipAvatarSkin: { backgroundColor: '#2D3A6B' },
   tipAvatarLook: { backgroundColor: '#FF6B9D' },
   tipAvatarText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
   tipBubbleWrapper: { flex: 1 },
@@ -271,5 +269,5 @@ const styles = StyleSheet.create({
     color: '#8A8A9A',
     marginBottom: 6,
   },
-  tipText: { fontSize: 14, color: '#1A1A2E', lineHeight: 22 },
+  tipText: { fontSize: 14, color: '#1A1A1F', lineHeight: 22 },
 });

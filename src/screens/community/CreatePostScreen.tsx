@@ -32,7 +32,7 @@ import {
 type Nav = NativeStackNavigationProp<MainStackParamList, 'CreatePost'>;
 
 const PINK = '#FF6B9D';
-const BLUE = '#5BA3D9';
+const BLUE = '#2D3A6B';
 const BUCKET = 'community-posts';
 const MAX_CONTENT = 500;
 const MAX_PRODUCTS = 5;
@@ -613,7 +613,7 @@ export function CreatePostScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFBFC' },
+  safeArea: { flex: 1, backgroundColor: '#FBF5F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1F' },
   submitTopBtn: { fontSize: 14, fontWeight: '700', color: PINK },
 
   content: { padding: 20, paddingBottom: 60, gap: 16 },
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   typeTabTextActive: { color: PINK },
 
   section: { gap: 8 },
-  sectionLabel: { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
+  sectionLabel: { fontSize: 13, fontWeight: '700', color: '#1A1A1F' },
   sectionHint: { fontSize: 11, color: '#8A8A9A' },
 
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -730,7 +730,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
-    color: '#1A1A2E',
+    color: '#1A1A1F',
     minHeight: 90,
     textAlignVertical: 'top',
   },
